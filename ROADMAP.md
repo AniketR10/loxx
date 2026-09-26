@@ -140,7 +140,7 @@ Each phase lists its **Goal**, **Tasks**, **Exit criteria** and **Out of scope**
 
 **Tasks**
 - [x] `git init`, `.gitignore`
-- [ ] `LICENSE`: **the user adds it themselves** (do not create it)
+- [x] `LICENSE`: added by the user (MIT, © 2026 Aniket Rawat, commit 8d30b1b). Do not edit it.
 - [x] `go mod init github.com/AniketR10/loc`, and set the minimum Go version in `go.mod`
 - [x] Directory layout (approved):
   ```
@@ -374,7 +374,7 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 | Date | Phase | What happened / evidence |
 |---|---|---|
 | 2026-09-26 | Planning | Brief reviewed; architecture revised (hybrid search, dedup, no daemon, no PTY, in-process embeddings, Go). Decisions locked (§3). Roadmap created. |
-| 2026-09-26 | Phase 0 ✅ | Private repo `AniketR10/loc` created. Local: vet + staticcheck + tests pass; `bin/loc` is statically linked (`ldd`: not a dynamic executable), 1.5 MB. First CI run passed: https://github.com/AniketR10/loc/actions/runs/36258401581. LICENSE is still pending (the user is adding it). |
+| 2026-09-26 | Phase 0 ✅ | Private repo `AniketR10/loc` created. Local: vet + staticcheck + tests pass; `bin/loc` is statically linked (`ldd`: not a dynamic executable), 1.5 MB. First CI run passed: https://github.com/AniketR10/loc/actions/runs/36258401581. LICENSE was added by the user in 8d30b1b. |
 
 ---
 
