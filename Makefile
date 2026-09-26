@@ -4,7 +4,7 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 
 export CGO_ENABLED := 0
 
-.PHONY: build test lint bench check-static clean
+.PHONY: build test lint bench fuzz check-static clean
 
 build:
 	go build -trimpath -ldflags '$(LDFLAGS)' -o bin/loc ./cmd/loc
@@ -18,6 +18,10 @@ lint:
 
 bench:
 	go test -run '^$$' -bench . -benchmem ./...
+
+FUZZTIME ?= 60s
+fuzz:
+	go test ./internal/scrub -run '^$$' -fuzz FuzzScrub -fuzztime $(FUZZTIME)
 
 # Fails unless bin/loc is a statically linked binary (core principle P4).
 check-static: build

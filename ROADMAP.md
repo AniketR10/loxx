@@ -87,6 +87,9 @@ no network calls.
 | GitHub repo | **Private** for now: `github.com/AniketR10/loc` |
 | LICENSE file | **The user adds it themselves.** Claude must not create or edit `LICENSE`. |
 | Go version | `go 1.25.0` minimum, `toolchain go1.25.12` (the locally installed version) |
+| SQLite driver | **modernc.org/sqlite** v1.59.0 (pure Go, FTS5), approved 2026-09-27 |
+| Data location | **`$XDG_DATA_HOME/loc/history.db`** (default `~/.local/share/loc/`), overridable with **`LOC_DB_PATH`**, approved 2026-09-27 |
+| Embeddings table | **Created in Phase 2**, not Phase 1 (only create tables when they're used), approved 2026-09-27 |
 | Linting | `go vet` + `staticcheck` **2026.1**, pinned. 2026.2+ requires Go 1.26 and would silently download a second toolchain. |
 | Build tool | `Makefile` (`build`, `test`, `lint`, `bench`, `check-static`, `clean`) |
 | CI | GitHub Actions: `actions/checkout@v7`, `actions/setup-go@v7` (latest releases as of 2026-09-26) |
@@ -94,13 +97,11 @@ no network calls.
 ### PROPOSED (confirm before the phase that uses it)
 | Topic | Proposal | Needed by |
 |---|---|---|
-| SQLite driver | `modernc.org/sqlite` (pure Go, FTS5) | Phase 1 |
 | Vector search | Brute-force cosine in Go over float32 blobs (no sqlite-vec) | Phase 3 |
 | Embedding model | model2vec `potion-base-8M` (verify license, size, quality) | Phase 2 |
 | Search ranking | FTS5 BM25 + vector → Reciprocal Rank Fusion → recency/frequency/cwd boosts | Phase 3 |
 | TUI | Bubbletea + Bubbles + Lipgloss | Phase 5 |
 | Config format / location | TOML at `$XDG_CONFIG_HOME/loc/config.toml` | Phase 6 |
-| Data location | `$XDG_DATA_HOME/loc/history.db` (default `~/.local/share/loc/`) | Phase 1 |
 | Bash hook mechanism | Vendored `bash-preexec` (verify license) vs `PS0` + `PROMPT_COMMAND` | Phase 4 |
 | Linux architectures | amd64 + arm64 | Phase 7 |
 | Release tooling | GoReleaser + GitHub Actions | Phase 7 |
@@ -115,6 +116,7 @@ no network calls.
 | O4 | Minimum supported bash and zsh versions | Phase 4 |
 | O5 | Should `loc` record commands run inside `ssh` sessions on remote hosts? (Probably out of scope for v1, but unconfirmed) | Phase 4 |
 | O6 | Go 1.26 is out (1.26.8 seen 2026-09-26), but 1.25.12 is installed locally. Move the project to Go 1.26? | Any time (low priority) |
+| O7 | `executions.source` gained a third value, `'manual'`, for `loc add`. Keep it? (Alternative: record `loc add` as `'live'`) | Phase 4 (before `loc record` ships) |
 
 ---
 
@@ -173,33 +175,44 @@ Each phase lists its **Goal**, **Tasks**, **Exit criteria** and **Out of scope**
 **Goal:** Commands can be safely stored and found by keyword. No secret ever reaches disk.
 
 **Tasks: Scrubber (build first; everything else depends on it)**
-- [ ] Test corpus in `testdata/secrets/` with positive examples (must redact) and negative examples (must NOT redact: git SHAs, UUIDs, docker digests, base64 file names…)
-- [ ] Layer 1: skip commands that start with a space (ignorespace convention)
-- [ ] Layer 2: known token patterns (AWS, GitHub, GitLab, Slack, Stripe, JWT, private-key blocks, Google API keys…). Check the license of any ruleset we borrow from (e.g. gitleaks is MIT; verify).
-- [ ] Layer 3: structural rules (`PASSWORD=…`, `*_TOKEN=…`, `--password[= ]…`, `mysql -p…`, `Authorization: Bearer …`, `scheme://user:pass@host`, `-H 'X-Api-Key: …'`)
-- [ ] Layer 4: high-entropy fallback with an allowlist (hex hashes, UUIDs)
-- [ ] Replacement format: `<REDACTED:kind>`, so the command stays readable
-- [ ] Record whether redaction happened (a count/flag) without storing the secret
-- [ ] Fuzz test: the scrubber never panics, and its output never contains a corpus secret
+- [x] Test corpus in `testdata/secrets/`: `positive.jsonl` (43 commands, each listing its secrets) and `negative.jsonl` (51 commands that must stay unchanged). All secrets are fake or public documentation examples.
+- [x] Layer 1: skip commands that start with a space (`scrub.Ignored`)
+- [x] Layer 2: known token patterns: AWS, GitHub, GitLab, Slack, Stripe, Google, OpenAI, Anthropic, Hugging Face, npm, PyPI, DigitalOcean, SendGrid, JWT, private-key blocks. **Written from scratch; no third-party ruleset copied**, so there's no license question.
+- [x] Layer 3: structural rules: `KEY=value` (secret-ish key names, skipping `*_FILE`/`*_PATH`/`PWD`/…), `--password`/`--token`/… flags, URL `user:pass@`, `Authorization`/API-key/cookie headers, JSON `"password": "…"`, query params, `mysql -p…`, `sshpass -p`, `redis-cli -a`, `curl -u user:pass`, openssl `pass:…`, `aws configure set aws_secret_access_key …`
+- [x] Layer 4: high-entropy fallback: ≥20 chars, upper + lower + digit, Shannon entropy ≥ 3.5, and class-change factor ≥ 0.45. Hex-only strings (SHAs, digests, UUIDs) are skipped.
+- [x] Replacement format: `<REDACTED:kind>`
+- [x] Redaction count returned (`Command.Redactions()`) and stored in `commands.redacted`
+- [x] Fuzz test (`FuzzScrub`): no panics, valid UTF-8 is preserved, scrubbing is idempotent. **It found a real leak**: in `mysql -pA -pB` only the first password was redacted. Fixed by applying each rule until it finds nothing new. The regression input is kept in `internal/scrub/testdata/fuzz/`. A later 90 s run (~213k inputs) was clean. `make fuzz` runs it (`FUZZTIME=60s` by default).
+- [x] P2 is enforced by the type system: `store.Execution` takes a `scrub.Command`, which can only be built by `scrub.Scrub`.
 
 **Tasks: Storage**
-- [ ] Schema v1 (PROPOSED, confirm):
-  - `commands(id, text UNIQUE, first_seen, last_seen, run_count, redacted, embedded_at NULL)`
-  - `executions(id, command_id, cwd, git_root NULL, exit_code, duration_ms, started_at, session_id, hostname, source['live'|'import'])`
-  - `commands_fts`: FTS5 over `commands.text`
-  - `embeddings(command_id, model_id, dims, vector BLOB)`
-  - `meta(key, value)`: schema version, active model id
-- [ ] Migrations framework (versioned, forward-only)
-- [ ] WAL mode, busy timeout, DB file permissions `0600`, data dir permissions `0700`
-- [ ] Concurrency test: N processes writing at once without errors (simulates many terminal tabs)
-- [ ] CLI: `loc add "<cmd>" [--cwd --exit]`: scrub → upsert command → insert execution
-- [ ] CLI: `loc search "<query>"`: FTS5-only for now, plain-text output
+- [x] Schema v1 (approved with changes, 2026-09-27):
+  - `commands(id, text UNIQUE, first_seen, last_seen, run_count, redacted, embedded_at NULL)`: times are unix milliseconds
+  - `executions(id, command_id, cwd NULL, git_root NULL, exit_code NULL, duration_ms NULL, started_at NULL, session_id, hostname, source['live'|'import'|'manual'])`. NULL means unknown (e.g. imports). The `'manual'` source value was added for `loc add` (**confirm: O7**).
+  - `commands_fts`: FTS5 (default `unicode61` tokenizer), kept in sync by triggers
+  - `meta(key, value)`: holds `schema_version`
+  - `embeddings`: **deferred to Phase 2** (user decision)
+- [x] Migrations framework: versioned and forward-only. Checks the version without a lock first, then migrates under `BEGIN IMMEDIATE`. Refuses to open a database from a newer loc.
+- [x] WAL, `busy_timeout=10000`, `synchronous=NORMAL`, `foreign_keys=ON`, and `_txlock=immediate` (all writes take the write lock up front). DB file `0600` (the -wal and -shm files inherit it), newly created data dir `0700`. Existing dirs are never chmod-ed.
+- [x] Concurrency test: 20 **separate processes** race to create, migrate and write one fresh DB
+- [x] CLI: `loc add [--cwd DIR] [--exit CODE] "<cmd>"`: prints a notice on stderr when it redacts something
+- [x] CLI: `loc search [--limit N] <query>`: words are ANDed, each word also matches as a prefix, ranked by BM25. Default limit 5 (from the original brief). Exits 1 on no matches (like grep).
+- [x] Data path: `$LOC_DB_PATH` → `$XDG_DATA_HOME/loc/history.db` → `~/.local/share/loc/history.db`
 
 **Exit criteria**
-- [ ] All positive corpus secrets are redacted and all negative items are left intact (100%, not "mostly")
-- [ ] A grep of the DB file for every corpus secret finds nothing
-- [ ] 20 concurrent writers × 500 inserts: 0 errors
-- [ ] `loc add` then `loc search` round-trips correctly
+- [x] All positive corpus secrets are redacted and all negative items are left intact (100%): `TestPositiveCorpus`, `TestNegativeCorpus`
+- [x] A grep of the DB files (db + wal + shm, while open and after close) for every corpus secret finds nothing, with a positive control proving the check reads stored data: `TestNoSecretsOnDisk`. Also confirmed by a manual smoke test of the real binary.
+- [x] 20 concurrent writers × 500 inserts: 0 errors, 10,000/10,000 rows, correct run counts, in about 2.1 s: `TestConcurrentWriters`
+- [x] `loc add` then `loc search` round-trips correctly: `TestAddAndSearch`, plus a manual smoke test
+
+**Measurements (2026-09-27, dev machine)**
+- `scrub.Scrub`: about 6.5 µs for `git status`, 135–145 µs for long commands with secrets (0–7 allocations). This will matter for the Phase 4 `loc record` latency budget.
+- Binary: 1.5 MB → **6.6 MB** with SQLite. Linked modules: modernc.org/{sqlite,libc,mathutil,memory}, golang.org/x/sys, google/uuid, remyoudompheng/bigfft (BSD-3), dustin/go-humanize (MIT). The MPL-2.0 module in the graph is **not** linked.
+
+**Known limitations (accepted for now, revisit if they bite)**
+- Hex-only secrets without a telling key name or flag (e.g. a bare 64-hex API key as a positional argument) are not caught. This is the trade-off for never redacting git SHAs and digests.
+- Only the command text is scrubbed. `cwd` and hostname are stored as-is.
+- The corpus contains fake secrets in token formats. If GitHub secret-scanning push protection is on for the repo, a push could be blocked; the fix is to mark them as test data.
 
 **Out of scope:** embeddings, hooks, TUI.
 
@@ -369,12 +382,13 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 
 ## 6. Progress log
 
-**Current phase: Phase 1 (not started)**. Before starting, confirm these §3 PROPOSED items: SQLite driver, data location, schema v1.
+**Current phase: Phase 2 (not started)**. Before starting, confirm the §3 PROPOSED embedding model, and the user needs to write the eval queries (Phase 2 task).
 
 | Date | Phase | What happened / evidence |
 |---|---|---|
 | 2026-09-26 | Planning | Brief reviewed; architecture revised (hybrid search, dedup, no daemon, no PTY, in-process embeddings, Go). Decisions locked (§3). Roadmap created. |
 | 2026-09-26 | Phase 0 ✅ | Private repo `AniketR10/loc` created. Local: vet + staticcheck + tests pass; `bin/loc` is statically linked (`ldd`: not a dynamic executable), 1.5 MB. First CI run passed: https://github.com/AniketR10/loc/actions/runs/36258401581. LICENSE was added by the user in 8d30b1b. |
+| 2026-09-27 | Phase 1 ✅ | Scrubber (4 layers, 43 positive / 51 negative corpus, fuzzed) + SQLite store (schema v1, migrations, WAL, 0600/0700) + `loc add` / `loc search`. All exit criteria pass locally (`make lint test check-static`). The fuzzer found and fixed a multi-password leak. Not yet committed: the user commits. |
 
 ---
 
