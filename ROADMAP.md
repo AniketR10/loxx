@@ -158,12 +158,12 @@ Each phase lists its **Goal**, **Tasks**, **Exit criteria** and **Out of scope**
   ```
 - [x] CLI skeleton: `loc version`, `loc help` (stdlib `flag`: see §3)
 - [x] Makefile: `build`, `test`, `lint`, `bench`, `check-static`, `clean`
-- [ ] GitHub repo created (private: approved by the user)
+- [x] GitHub repo created (private: approved by the user)
 - [x] CI: build with `CGO_ENABLED=0`, `go test ./...`, lint, and a check that the binary is static
 
 **Exit criteria**
-- [ ] `CGO_ENABLED=0 go build ./cmd/loc` produces a static binary (checked with `file`/`ldd`)
-- [ ] CI passes on the first commit
+- [x] `CGO_ENABLED=0 go build ./cmd/loc` produces a static binary (checked with `file`/`ldd`)
+- [x] CI passes on the first commit
 
 **Out of scope:** any functionality.
 
@@ -369,15 +369,16 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 
 ## 6. Progress log
 
-**Current phase: Phase 0 (not started)**
+**Current phase: Phase 1 (not started)**. Before starting, confirm these §3 PROPOSED items: SQLite driver, data location, schema v1.
 
 | Date | Phase | What happened / evidence |
 |---|---|---|
 | 2026-09-26 | Planning | Brief reviewed; architecture revised (hybrid search, dedup, no daemon, no PTY, in-process embeddings, Go). Decisions locked (§3). Roadmap created. |
+| 2026-09-26 | Phase 0 ✅ | Private repo `AniketR10/loc` created. Local: vet + staticcheck + tests pass; `bin/loc` is statically linked (`ldd`: not a dynamic executable), 1.5 MB. First CI run passed: https://github.com/AniketR10/loc/actions/runs/36258401581. LICENSE is still pending (the user is adding it). |
 
 ---
 
 ## 7. Backlog (unscheduled)
 _Ideas that come up mid-phase go here, not into the code._
 
-- (empty)
+- CI: GitHub says `ubuntu-latest` moves to Ubuntu 26 from 2026-10-19. Static binaries shouldn't care, but check the first CI run after that date.
