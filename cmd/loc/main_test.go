@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -35,5 +36,60 @@ func TestRun(t *testing.T) {
 				t.Errorf("stderr = %q, want it to contain %q", stderr.String(), tt.wantStderr)
 			}
 		})
+	}
+}
+
+func runOK(t *testing.T, args ...string) (stdout, stderr string) {
+	t.Helper()
+	var out, errOut bytes.Buffer
+	if code := run(args, &out, &errOut); code != 0 {
+		t.Fatalf("loc %s: exit %d\nstderr: %s", strings.Join(args, " "), code, errOut.String())
+	}
+	return out.String(), errOut.String()
+}
+
+func TestAddAndSearch(t *testing.T) {
+	t.Setenv("LOC_DB_PATH", filepath.Join(t.TempDir(), "history.db"))
+
+	runOK(t, "add", "--cwd", "/srv/api", "--exit", "0", "docker run -v pgdata:/var/lib/postgresql/data postgres:16")
+	_, stderr := runOK(t, "add", "--exit", "1", "export DB_PASSWORD=hunter2")
+	if !strings.Contains(stderr, "redacted 1 secret") {
+		t.Errorf("expected a redaction notice, got %q", stderr)
+	}
+	_, stderr = runOK(t, "add", " echo private")
+	if !strings.Contains(stderr, "not recorded") {
+		t.Errorf("expected a not-recorded notice, got %q", stderr)
+	}
+
+	stdout, _ := runOK(t, "search", "docker", "postg")
+	if !strings.Contains(stdout, "docker run -v pgdata") || !strings.Contains(stdout, "/srv/api · ") || !strings.Contains(stdout, "exit 0 · 1 run") {
+		t.Errorf("unexpected search output:\n%s", stdout)
+	}
+
+	stdout, _ = runOK(t, "search", "DB_PASSWORD")
+	if strings.Contains(stdout, "hunter2") || !strings.Contains(stdout, "<REDACTED:secret-env>") {
+		t.Errorf("secret visible in search output:\n%s", stdout)
+	}
+
+	var out, errOut bytes.Buffer
+	if code := run([]string{"search", "private"}, &out, &errOut); code != 1 {
+		t.Errorf("searching an ignored command: exit %d, want 1 (no matches)", code)
+	}
+}
+
+func TestAddUsageErrors(t *testing.T) {
+	t.Setenv("LOC_DB_PATH", filepath.Join(t.TempDir(), "history.db"))
+	for _, args := range [][]string{
+		{"add"},
+		{"add", "one", "two"},
+		{"add", "--exit", "x", "ls"},
+		{"add", ""},
+		{"search"},
+		{"search", "--limit", "0", "ls"},
+	} {
+		var out, errOut bytes.Buffer
+		if code := run(args, &out, &errOut); code != 2 {
+			t.Errorf("loc %q: exit %d, want 2", args, code)
+		}
 	}
 }

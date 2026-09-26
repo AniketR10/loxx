@@ -19,6 +19,8 @@ type command struct {
 
 func commands() []command {
 	return []command{
+		{name: "add", summary: "record a command manually", run: runAdd},
+		{name: "search", summary: "search recorded commands by keyword", run: runSearch},
 		{name: "version", summary: "print the loc version", run: runVersion},
 	}
 }
