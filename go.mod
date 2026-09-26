@@ -1,0 +1,5 @@
+module github.com/AniketR10/loc
+
+go 1.25.0
+
+toolchain go1.25.12
