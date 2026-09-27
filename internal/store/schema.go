@@ -66,6 +66,10 @@ CREATE TABLE embeddings (
 	vector     BLOB    NOT NULL -- dims little-endian float32 values
 ) STRICT;
 `,
+
+	// v3: drop commands.embedded_at. Whether a command is embedded is decided
+	// by the embeddings table, which also covers model changes.
+	`ALTER TABLE commands DROP COLUMN embedded_at;`,
 }
 
 // SchemaVersion is the schema version this build of loc writes.
