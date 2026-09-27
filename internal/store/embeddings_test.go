@@ -50,12 +50,12 @@ func TestEmbeddingsLifecycle(t *testing.T) {
 	}
 
 	// Vectors round-trip exactly and only for their model.
-	es, err := db.Embeddings(ctx, "m1")
+	ids, vecs, dims, err := db.EmbeddingMatrix(ctx, "m1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(es) != 1 || es[0].CommandID != gitID || !slices.Equal(es[0].Vector, vec) {
-		t.Errorf("Embeddings(m1) = %+v", es)
+	if !slices.Equal(ids, []int64{gitID}) || dims != len(vec) || !slices.Equal(vecs, vec) {
+		t.Errorf("EmbeddingMatrix(m1) = %v, %v, %d", ids, vecs, dims)
 	}
 
 	// A new model makes everything pending again; saving replaces the old vector.
@@ -65,8 +65,8 @@ func TestEmbeddingsLifecycle(t *testing.T) {
 	if err := db.SaveEmbeddings(ctx, "m2", []Embedding{{CommandID: gitID, Vector: []float32{9}}}); err != nil {
 		t.Fatal(err)
 	}
-	if es, _ := db.Embeddings(ctx, "m1"); len(es) != 0 {
-		t.Errorf("old model's vector should be replaced, still have %+v", es)
+	if ids, _, _, _ := db.EmbeddingMatrix(ctx, "m1"); len(ids) != 0 {
+		t.Errorf("old model's vector should be replaced, still have %v", ids)
 	}
 }
 
@@ -131,6 +131,12 @@ func TestMigrateFromV1(t *testing.T) {
 	}
 	if n, err := db.CountPendingEmbeddings(ctx, "m1"); err != nil || n != 1 {
 		t.Errorf("after upgrade: pending = %d, %v; want the existing command pending", n, err)
+	}
+	if n := count(t, db, `SELECT count(*) FROM pragma_table_info('commands') WHERE name = 'embedded_at'`); n != 0 {
+		t.Error("commands.embedded_at should be dropped")
+	}
+	if n := count(t, db, `SELECT count(*) FROM commands_fts WHERE commands_fts MATCH 'status'`); n != 1 {
+		t.Errorf("FTS index lost the upgraded command: %d matches", n)
 	}
 	if _, err := db.Add(ctx, Execution{Command: scrub.Scrub("ls"), Source: SourceManual}); err != nil {
 		t.Errorf("writing after upgrade: %v", err)

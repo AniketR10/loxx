@@ -8,8 +8,7 @@ import (
 	"unicode"
 )
 
-// Result is a command matched by a search, with details of its most recent
-// execution.
+// Result is a command with details of its most recent execution.
 type Result struct {
 	CommandID int64
 	Text      string
@@ -19,29 +18,68 @@ type Result struct {
 	ExitCode  *int   // nil when unknown
 }
 
-// SearchKeyword returns up to limit commands containing every word of query
-// (each word also matches as a prefix), best BM25 match first.
-func (db *DB) SearchKeyword(ctx context.Context, query string, limit int) ([]Result, error) {
-	match := ftsQuery(query)
+// MatchMode says how the words of a keyword query combine.
+type MatchMode int
+
+const (
+	// MatchAll requires every word. It is what search uses: precise for
+	// typed fragments, and it matches nothing for most sentences, which
+	// leaves those to semantic ranking.
+	MatchAll MatchMode = iota
+	// MatchAny requires at least one word and lets BM25 rank by how many and
+	// how rare. It scored lower than MatchAll in hybrid search on both eval
+	// sets; kept for the eval harness.
+	MatchAny
+)
+
+// KeywordIDs returns up to limit ids of commands matching query, best BM25
+// match first. Each word also matches as a prefix.
+func (db *DB) KeywordIDs(ctx context.Context, query string, mode MatchMode, limit int) ([]int64, error) {
+	match := ftsQuery(query, mode)
 	if match == "" {
 		return nil, nil
 	}
 	rows, err := db.sql.QueryContext(ctx, `
+		SELECT rowid FROM commands_fts WHERE commands_fts MATCH ?
+		ORDER BY bm25(commands_fts) LIMIT ?`, match, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// Results returns the commands with the given ids, in the same order. Ids that
+// no longer exist are skipped.
+func (db *DB) Results(ctx context.Context, ids []int64) ([]Result, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	rows, err := db.sql.QueryContext(ctx, `
 		SELECT c.id, c.text, c.run_count, c.last_seen, e.cwd, e.exit_code
-		FROM commands_fts
-		JOIN commands c ON c.id = commands_fts.rowid
+		FROM commands c
 		LEFT JOIN executions e ON e.id = (
 			SELECT id FROM executions WHERE command_id = c.id
 			ORDER BY started_at DESC, id DESC LIMIT 1)
-		WHERE commands_fts MATCH ?
-		ORDER BY bm25(commands_fts)
-		LIMIT ?`, match, limit)
+		WHERE c.id IN (?`+strings.Repeat(", ?", len(ids)-1)+`)`, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var results []Result
+	byID := make(map[int64]Result, len(ids))
 	for rows.Next() {
 		var (
 			r        Result
@@ -58,20 +96,33 @@ func (db *DB) SearchKeyword(ctx context.Context, query string, limit int) ([]Res
 			code := int(exitCode.Int64)
 			r.ExitCode = &code
 		}
-		results = append(results, r)
+		byID[r.CommandID] = r
 	}
-	return results, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	results := make([]Result, 0, len(ids))
+	for _, id := range ids {
+		if r, ok := byID[id]; ok {
+			results = append(results, r)
+		}
+	}
+	return results, nil
 }
 
-// ftsQuery turns free text into an FTS5 query that ANDs every word as a
-// prefix match. Splitting on anything but letters and digits mirrors the
-// unicode61 tokenizer and keeps FTS5 syntax characters out of the query.
-func ftsQuery(q string) string {
+// ftsQuery turns free text into an FTS5 query where every word is a prefix
+// match, joined by AND or OR. Splitting on anything but letters and digits
+// mirrors the unicode61 tokenizer and keeps FTS5 syntax out of the query.
+func ftsQuery(q string, mode MatchMode) string {
 	words := strings.FieldsFunc(q, func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 	})
 	for i, w := range words {
 		words[i] = `"` + w + `"*`
 	}
-	return strings.Join(words, " ")
+	sep := " "
+	if mode == MatchAny {
+		sep = " OR "
+	}
+	return strings.Join(words, sep)
 }

@@ -1,13 +1,15 @@
 // Command eval is a dev-only harness that scores loc's search on an eval set:
-// for each natural-language query, where does the expected command rank?
+// for each natural-language query, where does the expected command rank? It
+// ranks through internal/search, so what it measures is what loc ships.
 //
 // Usage:
 //
-//	go run ./tools/eval --db HISTORY_DB --queries QUERIES_JSONL
+//	go run ./tools/eval --db HISTORY_DB --queries QUERIES_JSONL [--grid]
 //
 // The database must be fully embedded first (`loc embed --pending`). The eval
 // set is JSON lines of {"query": "...", "expected": ["command text", ...]};
-// see docs/decisions/0001-embedding-model.md.
+// see docs/decisions/0001-embedding-model.md. --grid also scores a small grid
+// of fusion settings.
 package main
 
 import (
@@ -18,38 +20,36 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"slices"
 	"time"
 
 	"github.com/AniketR10/loc/internal/embed"
+	"github.com/AniketR10/loc/internal/search"
 	"github.com/AniketR10/loc/internal/store"
 )
 
 const topK = 10
 
-type query struct {
-	Query    string   `json:"query"`
-	Expected []string `json:"expected"`
-}
-
-// ranker returns command ids, best first.
-type ranker func(ctx context.Context, query string) ([]int64, error)
-
 func main() {
 	dbPath := flag.String("db", "", "loc history database (fully embedded)")
 	queriesPath := flag.String("queries", "", "eval set, JSON lines")
+	grid := flag.Bool("grid", false, "also score a grid of fusion settings")
 	flag.Parse()
 	if *dbPath == "" || *queriesPath == "" {
 		flag.Usage()
 		os.Exit(2)
 	}
-	if err := run(context.Background(), *dbPath, *queriesPath); err != nil {
+	if err := run(context.Background(), *dbPath, *queriesPath, *grid); err != nil {
 		fmt.Fprintln(os.Stderr, "eval:", err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, dbPath, queriesPath string) error {
+type row struct {
+	name string
+	p    search.Params
+}
+
+func run(ctx context.Context, dbPath, queriesPath string, grid bool) error {
 	db, err := store.Open(ctx, dbPath)
 	if err != nil {
 		return err
@@ -60,7 +60,6 @@ func run(ctx context.Context, dbPath, queriesPath string) error {
 	} else if n > 0 {
 		return fmt.Errorf("%d commands are not embedded yet; run `LOC_DB_PATH=%s loc embed --pending`", n, dbPath)
 	}
-
 	ids, err := commandIDs(dbPath)
 	if err != nil {
 		return err
@@ -69,78 +68,64 @@ func run(ctx context.Context, dbPath, queriesPath string) error {
 	if err != nil {
 		return err
 	}
-	vectors, err := db.Embeddings(ctx, embed.ModelID)
-	if err != nil {
-		return err
-	}
-	model, err := embed.Default()
-	if err != nil {
+
+	s := search.New(ctx, db)
+	if err := s.SemanticErr(); err != nil {
 		return err
 	}
 	fmt.Printf("pool: %d commands, %d queries, model %s\n\n", len(ids), len(queries), embed.ModelID)
 
-	semantic := func(_ context.Context, q string) ([]int64, error) {
-		qv := model.Embed(q)
-		type scored struct {
-			id    int64
-			score float32
-		}
-		all := make([]scored, len(vectors))
-		for i, e := range vectors {
-			var s float32
-			for j, v := range e.Vector { // vectors are unit length: dot = cosine
-				s += v * qv[j]
-			}
-			all[i] = scored{e.CommandID, s}
-		}
-		slices.SortFunc(all, func(a, b scored) int {
-			switch {
-			case a.score > b.score:
-				return -1
-			case a.score < b.score:
-				return 1
-			}
-			return 0
-		})
-		out := make([]int64, 0, topK)
-		for _, s := range all[:min(topK, len(all))] {
-			out = append(out, s.id)
-		}
-		return out, nil
+	keywordOnly := func(mode store.MatchMode) search.Params {
+		return search.Params{KeywordMode: mode, KeywordWeight: 1, RRFK: 60}
 	}
-	keyword := func(ctx context.Context, q string) ([]int64, error) {
-		results, err := db.SearchKeyword(ctx, q, topK)
-		var out []int64
-		for _, r := range results {
-			out = append(out, r.CommandID)
+	rows := []row{
+		{"keyword AND", keywordOnly(store.MatchAll)},
+		{"keyword OR", keywordOnly(store.MatchAny)},
+		{"semantic only", search.Params{SemanticWeight: 1, RRFK: 60}},
+		{"hybrid (DefaultParams)", search.DefaultParams},
+	}
+	if grid {
+		for _, mode := range []store.MatchMode{store.MatchAll, store.MatchAny} {
+			for _, k := range []float64{5, 20, 60} {
+				for _, kw := range []float64{0.25, 0.5, 1} {
+					rows = append(rows, row{
+						fmt.Sprintf("hybrid %s k=%g kw=%g sem=1", modeName(mode), k, kw),
+						search.Params{KeywordMode: mode, KeywordWeight: kw, SemanticWeight: 1, RRFK: k},
+					})
+				}
+			}
 		}
-		return out, err
 	}
 
-	fmt.Printf("%-50s %5s %5s %5s  %s\n", "ranker", "top1", "top5", "MRR", "avg query time")
-	for _, r := range []struct {
-		name string
-		rank ranker
-	}{
-		{"keyword AND (loc search today)", keyword},
-		{"semantic (Go, " + embed.ModelID + ")", semantic},
-	} {
-		if err := score(ctx, r.name, r.rank, queries); err != nil {
+	fmt.Printf("%-38s %5s %5s %5s  %s\n", "ranker", "top1", "top5", "MRR", "avg rank time")
+	for _, r := range rows {
+		if err := score(ctx, s, r, queries); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func score(ctx context.Context, name string, rank ranker, queries []evalQuery) error {
+func modeName(m store.MatchMode) string {
+	if m == store.MatchAll {
+		return "AND"
+	}
+	return "OR"
+}
+
+func score(ctx context.Context, s *search.Searcher, r row, queries []evalQuery) error {
+	return scoreWith(ctx, r, queries, func(q string) ([]int64, error) { return s.Rank(ctx, q, topK, r.p) })
+}
+
+func scoreWith(ctx context.Context, r row, queries []evalQuery, rank func(string) ([]int64, error)) error {
 	var top1, top5, mrr float64
 	var elapsed time.Duration
 	for _, q := range queries {
 		start := time.Now()
-		got, err := rank(ctx, q.text)
+		got, err := rank(q.text)
 		elapsed += time.Since(start)
 		if err != nil {
-			return fmt.Errorf("%s: %q: %w", name, q.text, err)
+			return fmt.Errorf("%s: %q: %w", r.name, q.text, err)
 		}
 		for pos, id := range got {
 			if q.expected[id] {
@@ -156,7 +141,7 @@ func score(ctx context.Context, name string, rank ranker, queries []evalQuery) e
 		}
 	}
 	n := float64(len(queries))
-	fmt.Printf("%-50s %5.2f %5.2f %5.2f  %v\n", name, top1/n, top5/n, mrr/n,
+	fmt.Printf("%-38s %5.2f %5.2f %5.2f  %v\n", r.name, top1/n, top5/n, mrr/n,
 		(elapsed / time.Duration(len(queries))).Round(time.Microsecond))
 	return nil
 }
@@ -205,7 +190,10 @@ func loadQueries(path string, ids map[string]int64) ([]evalQuery, error) {
 		if len(sc.Bytes()) == 0 {
 			continue
 		}
-		var q query
+		var q struct {
+			Query    string   `json:"query"`
+			Expected []string `json:"expected"`
+		}
 		if err := json.Unmarshal(sc.Bytes(), &q); err != nil {
 			return nil, err
 		}

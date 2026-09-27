@@ -79,30 +79,41 @@ func (db *DB) SaveEmbeddings(ctx context.Context, modelID string, es []Embedding
 	return tx.Commit()
 }
 
-// Embeddings returns every stored vector from modelID.
-func (db *DB) Embeddings(ctx context.Context, modelID string) ([]Embedding, error) {
+// EmbeddingMatrix returns every stored vector from modelID as one contiguous
+// row-major matrix: row i (vectors[i*dims:(i+1)*dims]) belongs to ids[i].
+// dims is 0 when there are no vectors.
+func (db *DB) EmbeddingMatrix(ctx context.Context, modelID string) (ids []int64, vectors []float32, dims int, err error) {
+	var n int
+	if err := db.sql.QueryRowContext(ctx,
+		`SELECT count(*), coalesce(max(dims), 0) FROM embeddings WHERE model_id = ?`, modelID).Scan(&n, &dims); err != nil {
+		return nil, nil, 0, err
+	}
+	ids = make([]int64, 0, n)
+	vectors = make([]float32, 0, n*dims)
 	rows, err := db.sql.QueryContext(ctx,
 		`SELECT command_id, dims, vector FROM embeddings WHERE model_id = ? ORDER BY command_id`, modelID)
 	if err != nil {
-		return nil, err
+		return nil, nil, 0, err
 	}
 	defer rows.Close()
-	var es []Embedding
 	for rows.Next() {
 		var (
-			e    Embedding
-			dims int
+			id   int64
+			d    int
 			blob []byte
 		)
-		if err := rows.Scan(&e.CommandID, &dims, &blob); err != nil {
-			return nil, err
+		if err := rows.Scan(&id, &d, &blob); err != nil {
+			return nil, nil, 0, err
 		}
-		if e.Vector, err = decodeVector(blob, dims); err != nil {
-			return nil, fmt.Errorf("embedding for command %d: %w", e.CommandID, err)
+		if d != dims || len(blob) != 4*dims {
+			return nil, nil, 0, fmt.Errorf("embedding for command %d: %d dims in %d bytes, want %d dims", id, d, len(blob), dims)
 		}
-		es = append(es, e)
+		ids = append(ids, id)
+		for i := 0; i < dims; i++ {
+			vectors = append(vectors, math.Float32frombits(binary.LittleEndian.Uint32(blob[4*i:])))
+		}
 	}
-	return es, rows.Err()
+	return ids, vectors, dims, rows.Err()
 }
 
 func encodeVector(v []float32) []byte {
@@ -111,15 +122,4 @@ func encodeVector(v []float32) []byte {
 		binary.LittleEndian.PutUint32(b[4*i:], math.Float32bits(f))
 	}
 	return b
-}
-
-func decodeVector(b []byte, dims int) ([]float32, error) {
-	if len(b) != 4*dims {
-		return nil, fmt.Errorf("%d bytes for %d dims", len(b), dims)
-	}
-	v := make([]float32, dims)
-	for i := range v {
-		v[i] = math.Float32frombits(binary.LittleEndian.Uint32(b[4*i:]))
-	}
-	return v, nil
 }

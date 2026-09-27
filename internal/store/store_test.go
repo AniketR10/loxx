@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -146,46 +147,64 @@ func TestAddUnknownFieldsAreNull(t *testing.T) {
 	}
 }
 
-func TestSearchKeyword(t *testing.T) {
+func TestKeywordIDs(t *testing.T) {
+	ctx := context.Background()
 	db, _ := openTemp(t)
-	add(t, db, "docker run -v pgdata:/var/lib/postgresql/data postgres:16")
-	add(t, db, "docker ps")
-	add(t, db, "git status")
+	pg := add(t, db, "docker run -v pgdata:/var/lib/postgresql/data postgres:16")
+	ps := add(t, db, "docker ps")
+	gs := add(t, db, "git status")
 
 	tests := []struct {
 		query string
-		want  []string
+		mode  MatchMode
+		want  []int64
 	}{
-		{"postgres", []string{"docker run -v pgdata:/var/lib/postgresql/data postgres:16"}},
-		{"dock postg", []string{"docker run -v pgdata:/var/lib/postgresql/data postgres:16"}}, // prefixes, ANDed
-		{"git", []string{"git status"}},
-		{"kubectl", nil},
-		{`"unbalanced (quote* -AND- :col`, nil}, // FTS5 syntax must not leak into the query
-		{"", nil},
+		{"postgres", MatchAll, []int64{pg}},
+		{"dock postg", MatchAll, []int64{pg}}, // prefixes, ANDed
+		{"git", MatchAll, []int64{gs}},
+		{"kubectl", MatchAll, nil},
+		{"docker status", MatchAll, nil},
+		{"docker status", MatchAny, []int64{ps, gs, pg}},  // any word; shorter docs rank higher
+		{`"unbalanced (quote* -AND- :col`, MatchAll, nil}, // FTS5 syntax must not leak into the query
+		{`"unbalanced (quote* -AND- :col`, MatchAny, nil},
+		{"", MatchAny, nil},
 	}
 	for _, tt := range tests {
-		results, err := db.SearchKeyword(context.Background(), tt.query, 5)
+		got, err := db.KeywordIDs(ctx, tt.query, tt.mode, 5)
 		if err != nil {
-			t.Errorf("search %q: %v", tt.query, err)
+			t.Errorf("KeywordIDs(%q, %v): %v", tt.query, tt.mode, err)
 			continue
 		}
-		var got []string
-		for _, r := range results {
-			got = append(got, r.Text)
+		if tt.mode == MatchAny {
+			slices.Sort(got) // BM25 order between near-equal docs is not the point here
+			tt.want = slices.Sorted(slices.Values(tt.want))
 		}
-		if fmt.Sprint(got) != fmt.Sprint(tt.want) {
-			t.Errorf("search %q = %q, want %q", tt.query, got, tt.want)
+		if !slices.Equal(got, tt.want) {
+			t.Errorf("KeywordIDs(%q, %v) = %v, want %v", tt.query, tt.mode, got, tt.want)
 		}
 	}
+}
 
-	results, err := db.SearchKeyword(context.Background(), "docker", 5)
+func TestResults(t *testing.T) {
+	ctx := context.Background()
+	db, _ := openTemp(t)
+	a := add(t, db, "git status")
+	b := add(t, db, "docker ps")
+	add(t, db, "docker ps") // second run
+
+	results, err := db.Results(ctx, []int64{b, 999, a})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, r := range results {
-		if r.Cwd != "/home/alice/work/api" || r.ExitCode == nil || *r.ExitCode != 0 || r.RunCount != 1 {
-			t.Errorf("result details wrong: %+v", r)
-		}
+	if len(results) != 2 || results[0].CommandID != b || results[1].CommandID != a {
+		t.Fatalf("Results kept order %v and skipped unknown ids? got %+v", []int64{b, a}, results)
+	}
+	r := results[0]
+	if r.Text != "docker ps" || r.RunCount != 2 || r.Cwd != "/home/alice/work/api" || r.ExitCode == nil || *r.ExitCode != 0 {
+		t.Errorf("result details wrong: %+v", r)
+	}
+	if got, _ := db.Results(ctx, nil); got != nil {
+		t.Errorf("Results(nil) = %v", got)
 	}
 }
 

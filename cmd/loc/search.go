@@ -9,7 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/AniketR10/loc/internal/search"
 	"github.com/AniketR10/loc/internal/store"
 )
 
@@ -19,7 +21,7 @@ func runSearch(args []string, stdout, stderr io.Writer) int {
 	fs.Usage = func() {
 		fmt.Fprintln(stderr, "Usage: loc search [--limit N] <query>")
 		fmt.Fprintln(stderr)
-		fmt.Fprintln(stderr, "Finds commands containing every word of the query (words match as prefixes).")
+		fmt.Fprintln(stderr, "Finds commands by meaning and by keyword. All arguments together form the query.")
 		fmt.Fprintln(stderr)
 		fs.PrintDefaults()
 	}
@@ -44,31 +46,36 @@ func runSearch(args []string, stdout, stderr io.Writer) int {
 	}
 	defer db.Close()
 
-	results, err := db.SearchKeyword(ctx, query, *limit)
+	s := search.New(ctx, db)
+	results, err := s.Search(ctx, query, *limit, search.DefaultParams)
 	if err != nil {
 		fmt.Fprintln(stderr, "loc search:", err)
 		return 1
+	}
+	if err := s.SemanticErr(); err != nil {
+		fmt.Fprintln(stderr, "loc: semantic search unavailable, showing keyword matches only:", err)
 	}
 	if len(results) == 0 {
 		fmt.Fprintln(stderr, "loc: no matches")
 		return 1
 	}
 	home, _ := os.UserHomeDir()
+	now := time.Now()
 	for _, r := range results {
 		fmt.Fprintln(stdout, r.Text)
-		fmt.Fprintf(stdout, "    %s\n", details(r, home))
+		fmt.Fprintf(stdout, "    %s\n", details(r, home, now))
 	}
 	return 0
 }
 
 // details formats a result's metadata line, e.g.
-// "~/work/api · 2026-09-27 14:03 · exit 0 · 4 runs".
-func details(r store.Result, home string) string {
+// "~/work/api · 3 weeks ago · exit 0 · 4 runs".
+func details(r store.Result, home string, now time.Time) string {
 	var parts []string
 	if r.Cwd != "" {
 		parts = append(parts, tildePath(r.Cwd, home))
 	}
-	parts = append(parts, r.LastSeen.Local().Format("2006-01-02 15:04"))
+	parts = append(parts, relativeTime(r.LastSeen, now))
 	if r.ExitCode != nil {
 		parts = append(parts, fmt.Sprintf("exit %d", *r.ExitCode))
 	}
@@ -78,6 +85,34 @@ func details(r store.Result, home string) string {
 		parts = append(parts, fmt.Sprintf("%d runs", r.RunCount))
 	}
 	return strings.Join(parts, " · ")
+}
+
+// relativeTime describes t relative to now in the largest whole unit, e.g.
+// "just now", "5 minutes ago", "3 weeks ago".
+func relativeTime(t, now time.Time) string {
+	d := now.Sub(t)
+	if d < time.Minute {
+		return "just now"
+	}
+	for _, u := range []struct {
+		size time.Duration
+		name string
+	}{
+		{365 * 24 * time.Hour, "year"},
+		{30 * 24 * time.Hour, "month"},
+		{7 * 24 * time.Hour, "week"},
+		{24 * time.Hour, "day"},
+		{time.Hour, "hour"},
+		{time.Minute, "minute"},
+	} {
+		if n := int(d / u.size); n >= 1 {
+			if n == 1 {
+				return "1 " + u.name + " ago"
+			}
+			return fmt.Sprintf("%d %ss ago", n, u.name)
+		}
+	}
+	return "just now"
 }
 
 func tildePath(path, home string) string {
