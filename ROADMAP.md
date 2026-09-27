@@ -80,6 +80,14 @@ no network calls.
 | Default keybinding | **Take over Ctrl-R**, with a one-line config opt-out |
 | Setup burden | **Install only.** No manual steps (except the package-manager caveat in Phase 6) |
 | Embedding runtime | **In-process, model compiled into the binary.** No Ollama required. |
+| Embedding model | **`sentence-transformers/all-MiniLM-L6-v2`**, pinned to HF revision `1110a243fdf4706b3f48f1d95db1a4f5529b4d41` (user decision 2026-09-27 after the bake-off; see `docs/decisions/0001-embedding-model.md`). Verified: **Apache-2.0**; BERT with **6 layers**, hidden 384, 12 heads, FFN 1536, GELU, LayerNorm eps 1e-12; uncased WordPiece, vocab 30,522 (identical to L12); BertNormalizer (clean_text, chinese chars, lowercase, strip accents) + BertPreTokenizer + WordPiece (`##`, max 100 chars/word); **max_seq_length 256**; mean pooling → L2 normalize → 384-dim. Weights 90.9 MB f32 (~45 MB f16). model.safetensors sha256 `53aa5117…d9db`. **Fallback** if pure-Go speed fails the gate: potion-base-8M. |
+| Embedding speed | **Accepted as-is** (~65 ms per typical query on battery, ~110 ms model load). **No AVX2 assembly** unless real-world use shows it's too slow (user decision, 2026-09-27) |
+| Model weights distribution | **Not in git.** `make model` downloads `minilm-l6-v2.f16.safetensors` from the `model-minilm-l6-v2-f16` GitHub Release on this repo and verifies SHA-256 `aa3d97ae…272b` (build/test/lint depend on it). vocab.txt, LICENSE and README stay in git. User chose build-time download + SHA-256 (2026-09-27); Claude recommended GitHub Release over Hugging Face because users already download binaries from GitHub Releases (no new point of failure). End users are unaffected: release binaries embed the model. **Known cost: `go install …@latest` doesn't work** (document in the README). CI fetches with `gh` + token while the repo is private. **Rejected alternative (2026-09-27):** having `loc` download the model on first run (to `~/.loc/models/`). It gives a smaller binary (~7 MB vs ~52 MB), but breaks P3 (network use), the offline/air-gapped story and the XDG data location. |
+| Language policy | **Dev-only tooling may use any language** (Python for model conversion, golden generation, bake-offs). **Code that ships to users stays Go**, because of P1 (fast startup on every prompt), P3/P4 (single static binary, zero setup) and the install-only promise, not out of language preference. (User said the focus is performance and correctness, not language, 2026-09-27) |
+| Inference implementation | **Hand-written pure Go** (user decision, 2026-09-27; hugot rejected). If a transformer wins: BERT forward pass + WordPiece. If model2vec wins: WordPiece + lookup + mean pooling. Weights loaded from `go:embed`. Only extra dependency: `golang.org/x/text` v0.41.0 (BSD-3, needed for Unicode NFD in the tokenizer; v0.42+ requires Go 1.26). |
+| Weight precision | **f16** in the binary, converted to f32 at load (user decision, 2026-09-27; carried over from L12 to L6) |
+| Dev-only downloads | **Approved** (2026-09-27): L12 model files, a Python venv with sentence-transformers + CPU torch, Ollama `nomic-embed-text`, plus for the bake-off: the `model2vec` package, potion-base-8M and all-MiniLM-L6-v2. Never shipped to users. |
+| Eval queries | **Claude drafts them from `~/.bash_history`, and the user edits them** (2026-09-27) |
 | Output (stdout) capture via PTY | **Not in v1.** Backlog only. |
 | Database | **SQLite** (not DuckDB) |
 | CLI library | **stdlib `flag`** + a small hand-written subcommand dispatcher. No cobra: keeps `loc record` lean and the dependency count low. (User asked for a recommendation and accepted it, 2026-09-26) |
@@ -98,7 +106,6 @@ no network calls.
 | Topic | Proposal | Needed by |
 |---|---|---|
 | Vector search | Brute-force cosine in Go over float32 blobs (no sqlite-vec) | Phase 3 |
-| Embedding model | model2vec `potion-base-8M` (verify license, size, quality) | Phase 2 |
 | Search ranking | FTS5 BM25 + vector → Reciprocal Rank Fusion → recency/frequency/cwd boosts | Phase 3 |
 | TUI | Bubbletea + Bubbles + Lipgloss | Phase 5 |
 | Config format / location | TOML at `$XDG_CONFIG_HOME/loc/config.toml` | Phase 6 |
@@ -117,6 +124,7 @@ no network calls.
 | O5 | Should `loc` record commands run inside `ssh` sessions on remote hosts? (Probably out of scope for v1, but unconfirmed) | Phase 4 |
 | O6 | Go 1.26 is out (1.26.8 seen 2026-09-26), but 1.25.12 is installed locally. Move the project to Go 1.26? | Any time (low priority) |
 | O7 | `executions.source` gained a third value, `'manual'`, for `loc add`. Keep it? (Alternative: record `loc add` as `'live'`) | Phase 4 (before `loc record` ships) |
+| O8 | `commands.embedded_at` (schema v1) is unused since Phase 2: pending is derived from the `embeddings` table. Drop it in a migration, or keep it? | Any time (low priority) |
 
 ---
 
@@ -219,28 +227,51 @@ Each phase lists its **Goal**, **Tasks**, **Exit criteria** and **Out of scope**
 ---
 
 ### Phase 2: Embedding engine (the riskiest technical piece: prove it early)
-**Goal:** Pure-Go embeddings compiled into the binary, with measured quality.
+**Goal:** all-MiniLM-L6-v2 running in pure Go (no CGO), compiled into the binary, with measured speed and quality.
+
+**Decisions:** see §3 (inference: hand-written; precision: f16; dev downloads approved; eval drafted by Claude, edited by the user).
 
 **Tasks**
-- [ ] Verify the chosen model's license, file size, dimensions and tokenizer type. Record them in §3.
-- [ ] Port the model2vec inference to pure Go: tokenizer → token-id lookup → mean pooling → normalize
-- [ ] **Golden-vector test:** for about 50 strings, Go output must match the Python reference (`model2vec` package) within a set tolerance. Generate the goldens once and commit them to `testdata/`.
-- [ ] Compile the model into the binary with `go:embed`. Record the binary-size delta.
-- [ ] `loc embed --pending`: embed commands with `embedded_at IS NULL` in batches, guarded by a lockfile
-- [ ] Store `model_id`, so a future model change triggers a re-embed instead of mixing vectors
-- [ ] **Eval harness:** `testdata/eval/queries.jsonl` with about 30 natural-language queries and their expected commands, **written by the user from their real history** (**ask the user to provide them**). Metrics: recall@5 and MRR.
-- [ ] Baseline comparison: the same eval using Ollama `nomic-embed-text` (dev only, optional), to know how much quality we give up
+- [x] **Model bake-off:** potion-base-8M vs MiniLM-L6 vs MiniLM-L12 vs nomic-embed-text on 40 drafted queries over 369 real commands. **Winner: all-MiniLM-L6-v2** (top-1 0.55, top-5 0.80, MRR 0.65). Full results and learnings: `docs/decisions/0001-embedding-model.md`. Script: `tools/bakeoff/bakeoff.py`.
+- [x] Verify the winner's (L6) license, file size, dimensions and tokenizer type. Recorded in §3.
+- [x] WordPiece tokenizer in Go (BERT basic tokenizer: lowercase, strip accents, split punctuation and CJK characters; then greedy longest-match WordPiece; add `[CLS]`/`[SEP]`; truncate to 256 tokens, L6's max_seq_length). Done: `internal/embed/tokenizer.go`.
+- [x] **Tokenizer golden test:** token ids must match the Python reference exactly for the golden strings, including shell-heavy ones (`docker-compose`, `--flag=value`, paths, unicode)
+- [x] BERT forward pass in Go (`internal/embed/model.go`): embeddings + position + token-type → LayerNorm → 6 × (self-attention + FFN with GELU + residual + LayerNorm) → mean pooling over the attention mask → L2 normalize
+- [x] **Embedding golden test:** 48 strings (`testdata/embed/golden.json`, from `tools/model/goldens.py`). Bar: cosine ≥ 0.9999 (f16) and ≥ 0.99999 (f32, opt-in via `LOC_EMBED_F32`).
+- [x] Weight conversion script `tools/model/convert.py`: f32 → f16 safetensors (101 of 104 tensors; position_ids and pooler dropped), max rounding error 0.00098, **45.1 MB**. Binary-size delta: measured once `loc` imports the embed package (`loc embed`).
+- [x] Ship the model's Apache-2.0 license text alongside the weights (`internal/embed/model/LICENSE` + `README.md` with source revision, checksums and modifications). Mention it in the top-level README when that is written (Phase 7).
+- [x] `make model`: download + SHA-256 verification (tested: a bad hash, a 404, and wrong content are all rejected with no partial file left). CI caches the file.
+- [x] Created the `model-minilm-l6-v2-f16` GitHub Release (prerelease, `--latest=false`) with the weights + LICENSE, 2026-09-27, with the user's OK. The local SHA-256 was verified before upload. A read-back check was declined by the user; CI's `make model` verifies the SHA-256 on first download, and the prerelease/not-latest flags must be confirmed before Phase 6's `install.sh` relies on "latest".
+- [x] Migration v2: `embeddings(command_id PK → commands ON DELETE CASCADE, model_id, dims, vector BLOB)`, tested including an upgrade of a v1 database with data. **Deviations to confirm:** (1) `meta.active_model` was not added, because the per-row `model_id` already makes old-model vectors count as pending, and search filters by the binary's `embed.ModelID`; (2) `commands.embedded_at` (schema v1) is now **unused**: "pending" is "no embedding row for the current model", which also covers model changes. Drop the column in a later migration? (**O8**)
+- [x] `loc embed --pending [--workers N]`: batches of 64, most recently used first, saved per batch (Ctrl-C loses at most one batch), `flock` lockfile `<db>.embed.lock` (a second run exits 0 with a notice), parallel **across commands** (default workers = NumCPU/2 = 6 here). It does **not** lower its own CPU priority: Linux `setpriority` only affects one thread of a Go process, so Phase 4's hook should launch it with `nice`.
+- [x] `model_id` stored per vector (`embed.ModelID` = `all-MiniLM-L6-v2@1110a243/f16`). A different id makes every command pending again, and vectors from different models are never mixed (tested).
+- [x] Benchmarks: see the measurements below (load, per-token latency, real 369-command run with 1/6/12 workers, peak RAM)
+- [x] **Eval harness:** `go run ./tools/eval --db DB --queries testdata/eval/queries.jsonl` (keyword AND + semantic; top-1/top-5/MRR, avg query time). 40 queries drafted by Claude from the user's history (kept local, gitignored); **the user has not edited them yet**.
+- [x] Baseline comparison: nomic-embed-text scored top-1 0.50 / top-5 0.68 / MRR 0.56, *below* L6 (see the bake-off).
 
 **Exit criteria**
-- [ ] Golden tests pass
-- [ ] Embedding speed per command and model load time are measured and recorded
-- [ ] Eval numbers are recorded for semantic-only search
-- [ ] **Go/no-go gate (decided with the user):** is the quality acceptable? If not, choose one of:
-  a) a larger or different static model,
-  b) a transformer model in pure Go (hugot or hand-written MiniLM),
-  c) optional Ollama backend promoted into v1.
+- [x] Tokenizer golden test: 100% exact match (48/48)
+- [x] Embedding golden test passes: worst cosine **0.9999992** with the shipped f16 weights, **1.0000000** with the original f32 weights (the implementation is exact; only f16 rounding differs)
+- [x] Load time, per-command latency and RAM are measured and recorded (below)
+- [x] Eval numbers are recorded for semantic-only search. **The Go pipeline reproduces the Python bake-off exactly: top-1 0.55 / top-5 0.80 / MRR 0.65**, avg query 62.8 ms (battery).
+- [x] **Go/no-go gate: GO** (user decisions 2026-09-27): quality: L6 chosen on the bake-off; speed: "keep the current implementation at 65 ms unless real-world usage shows it's too slow; no AVX2 assembly yet".
 
-  Record the decision in §3.
+**Measurements so far (2026-09-27, i7-1255U laptop, single thread)**
+
+⚠️ The laptop was **on battery** (balanced profile, cores at 0.4–2 GHz) for the trustworthy runs. Earlier runs, probably on AC, were about 1.7–2× faster but were compared across runs and are not reliable. Only same-session A/B comparisons count.
+
+| What | On battery (A/B-verified) | Earlier, probably AC |
+|---|---|---|
+| Model load (parse + f16→f32) | ~105–115 ms, 92 MB allocated | ~118–137 ms |
+| Embed 5 tokens | ~29 ms | ~17–20 ms |
+| Embed 49 tokens | ~290 ms | ~143 ms |
+| Embed 256 tokens (max) | ~1.8 s | ~0.95 s |
+
+Cost is roughly linear: **~6 ms per token on battery**. The user's real data: commands median **14 tokens** (p90 34, max 112), eval queries median **11 tokens**. So a typical search query is **~65 ms on battery** (plus a one-time ~110 ms model load per process), and embedding all 369 unique commands takes **~42 s of single-core CPU** on battery.
+
+**Real run, `loc embed --pending` on the user's 369 unique commands (battery):** 1 worker 40.9 s wall; **6 workers (default) 10.5 s** (57.7 s CPU); 12 workers 7.8 s (72.7 s CPU; the extra threads land on efficiency cores). **Peak RSS ≈ 230 MB** (92 MB f32 weights + the 45 MB embedded f16 copy + Go GC headroom). Fine for a background job; revisit for the long-lived TUI process (see backlog). **Binary: 6.6 MB → 52.4 MB**, still statically linked.
+
+Tried and measured A/B, **none helped**, so the code stays simple: cache tiling (≈ same), GOAMD64=v3 / FMA fusion (≈ same), an 8-accumulator 2×4 kernel (2.8× slower: register spills), splitting one multiply across cores (slower: on this 2P+8E hybrid CPU the extra threads land on efficiency cores). Raw independent compute *does* scale ~6× on 12 threads, so parallelism belongs **across commands** in `loc embed`, not inside one multiply. The CPU supports AVX2+FMA, so SIMD assembly is the remaining big lever.
 
 **Out of scope:** ranking fusion, hooks, TUI.
 
@@ -251,15 +282,15 @@ Each phase lists its **Goal**, **Tasks**, **Exit criteria** and **Out of scope**
 
 **Tasks**
 - [ ] Vector search: load vectors and compute brute-force cosine. Benchmark at 10k / 100k / 500k rows.
-- [ ] FTS5 BM25 search (tokenizer config that handles `-`, `/`, `.`, `:` in commands)
-- [ ] Reciprocal Rank Fusion of the two lists
+- [ ] FTS5 BM25 search (tokenizer config that handles `-`, `/`, `.`, `:` in commands). **The bake-off showed AND-only keyword search scores 0/40 on natural-language queries**: use OR-style matching (or AND for short, as-you-type queries and OR for sentences), decided by measuring on the eval set.
+- [ ] Reciprocal Rank Fusion of the two lists. **Tune it; don't assume it helps:** in the bake-off, naive RRF (k=60, equal weights) slightly *hurt* L6 (MRR 0.65 → 0.63). Try weights, k, and when keyword is allowed to win.
 - [ ] Boosts: recency, run_count, current dir / git root match, exit-code filter
 - [ ] Fallback (P7): no vectors → FTS only, with no error shown to the user
 - [ ] `loc search` output: command, dir, relative time, exit status, run count
 - [ ] Re-run the eval: keyword-only vs semantic-only vs hybrid
 
 **Exit criteria**
-- [ ] Hybrid ≥ the better of the two single methods on recall@5 in the eval (numbers recorded)
+- [ ] Hybrid ≥ the better of the two single methods on **top-1 and MRR** (not just recall@5: Enter takes the top result) in the eval (numbers recorded). Bake-off baseline to beat: L6 semantic-only top-1 0.55 / top-5 0.80 / MRR 0.65.
 - [ ] Search latency at 100k commands is measured and recorded. Target: < 100 ms end-to-end, **to be confirmed**.
 
 **Out of scope:** TUI, hooks.
@@ -370,7 +401,7 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 - macOS support
 - fish shell
 - Optional Ollama backend (bigger models)
-- LLM-generated one-line descriptions of each unique command (needs Ollama or a bundled LLM)
+- LLM-generated one-line descriptions of each unique command (needs Ollama or a bundled LLM). **Evidence from the 2026-09-27 bake-off:** every model missed questions needing command *meaning* ("shelve changes" → `git stash`, "apply a single commit" → `cherry-pick`, "undo last commit, keep changes" → `reset --soft`). This is the most likely next quality jump.
 - Better in-process model (transformer via pure Go)
 - Opt-in output capture: `loc run -- <cmd>`, and/or terminal integration via OSC 133
 - `loc stats` (most used, most failed, per-project)
@@ -382,17 +413,20 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 
 ## 6. Progress log
 
-**Current phase: Phase 2 (not started)**. Before starting, confirm the §3 PROPOSED embedding model, and the user needs to write the eval queries (Phase 2 task).
+**Current phase: Phase 3 (not started)**. Phase 2 is complete: the user commits the Phase 2 work first.
 
 | Date | Phase | What happened / evidence |
 |---|---|---|
 | 2026-09-26 | Planning | Brief reviewed; architecture revised (hybrid search, dedup, no daemon, no PTY, in-process embeddings, Go). Decisions locked (§3). Roadmap created. |
 | 2026-09-26 | Phase 0 ✅ | Private repo `AniketR10/loc` created. Local: vet + staticcheck + tests pass; `bin/loc` is statically linked (`ldd`: not a dynamic executable), 1.5 MB. First CI run passed: https://github.com/AniketR10/loc/actions/runs/36258401581. LICENSE was added by the user in 8d30b1b. |
 | 2026-09-27 | Phase 1 ✅ | Scrubber (4 layers, 43 positive / 51 negative corpus, fuzzed) + SQLite store (schema v1, migrations, WAL, 0600/0700) + `loc add` / `loc search`. All exit criteria pass locally (`make lint test check-static`). The fuzzer found and fixed a multi-password leak. Not yet committed: the user commits. |
+| 2026-09-27 | Phase 2 ✅ | Bake-off (L6 chosen; `docs/decisions/0001-embedding-model.md`), exact pure-Go tokenizer + BERT (cosine 1.0000000 f32 / 0.9999992 f16), f16 weights via `make model` + GitHub Release, schema v2 `embeddings`, `loc embed --pending`, Go eval harness reproducing the bake-off (0.55/0.80/0.65). Speed accepted by the user. Not committed yet: the user commits. |
 
 ---
 
 ## 7. Backlog (unscheduled)
 _Ideas that come up mid-phase go here, not into the code._
 
+- Memory: `loc embed` peaks at ~230 MB RSS (f32 weights + the embedded f16 copy + GC headroom). Before the TUI (Phase 5) holds the model for a whole session, try `debug.SetGCPercent`/`SetMemoryLimit` or dropping the f16 bytes after conversion, measured A/B.
+- Scrubber gap (found 2026-09-27 on real history): Langfuse secret keys `sk-lf-<uuid>` are only caught next to a telling name (`*_SECRET_KEY=`). Passed bare, the hex+dash value is skipped by the entropy layer. Add a known-token rule for `sk-lf-` (and ask whether `pk-lf-` public keys should be redacted too).
 - CI: GitHub says `ubuntu-latest` moves to Ubuntu 26 from 2026-10-19. Static binaries shouldn't care, but check the first CI run after that date.
