@@ -83,6 +83,11 @@ no network calls.
 | Embedding model | **`sentence-transformers/all-MiniLM-L6-v2`**, pinned to HF revision `1110a243fdf4706b3f48f1d95db1a4f5529b4d41` (user decision 2026-09-27 after the bake-off; see `docs/decisions/0001-embedding-model.md`). Verified: **Apache-2.0**; BERT with **6 layers**, hidden 384, 12 heads, FFN 1536, GELU, LayerNorm eps 1e-12; uncased WordPiece, vocab 30,522 (identical to L12); BertNormalizer (clean_text, chinese chars, lowercase, strip accents) + BertPreTokenizer + WordPiece (`##`, max 100 chars/word); **max_seq_length 256**; mean pooling → L2 normalize → 384-dim. Weights 90.9 MB f32 (~45 MB f16). model.safetensors sha256 `53aa5117…d9db`. **Fallback** if pure-Go speed fails the gate: potion-base-8M. |
 | Embedding speed | **Accepted as-is** (~65 ms per typical query on battery, ~110 ms model load). **No AVX2 assembly** unless real-world use shows it's too slow (user decision, 2026-09-27) |
 | Model weights distribution | **Not in git.** `make model` downloads `minilm-l6-v2.f16.safetensors` from the `model-minilm-l6-v2-f16` GitHub Release on this repo and verifies SHA-256 `aa3d97ae…272b` (build/test/lint depend on it). vocab.txt, LICENSE and README stay in git. User chose build-time download + SHA-256 (2026-09-27); Claude recommended GitHub Release over Hugging Face because users already download binaries from GitHub Releases (no new point of failure). End users are unaffected: release binaries embed the model. **Known cost: `go install …@latest` doesn't work** (document in the README). CI fetches with `gh` + token while the repo is private. **Rejected alternative (2026-09-27):** having `loc` download the model on first run (to `~/.loc/models/`). It gives a smaller binary (~7 MB vs ~52 MB), but breaks P3 (network use), the offline/air-gapped story and the XDG data location. |
+| `executions.source` values | **`'live'`, `'import'`, `'manual'`**. `'manual'` is kept for `loc add` (user, 2026-09-27; was O7) |
+| `commands.embedded_at` | **Dropped** in migration v3; the `embeddings` table is the single source of truth (user: "remove the unnecessary things", 2026-09-27; was O8) |
+| Vector search | **Brute-force cosine in Go** over stored float32 vectors, no sqlite-vec (user, 2026-09-27) |
+| Search ranking | **Keyword BM25 + semantic, fused (RRF), then recency/frequency/cwd boosts**, with every weight **tuned against the eval set, not assumed** (user, 2026-09-27) |
+| Search latency target | **Keyword results < 50 ms at 100k; semantic results ready < 300 ms at 10k** (user, 2026-09-27; replaced "< 100 ms end-to-end at 100k" after measurements showed model load + query embedding alone take ~133 ms on battery). SQLite stays the only store; revisit if real histories exceed ~30k commands. |
 | Language policy | **Dev-only tooling may use any language** (Python for model conversion, golden generation, bake-offs). **Code that ships to users stays Go**, because of P1 (fast startup on every prompt), P3/P4 (single static binary, zero setup) and the install-only promise, not out of language preference. (User said the focus is performance and correctness, not language, 2026-09-27) |
 | Inference implementation | **Hand-written pure Go** (user decision, 2026-09-27; hugot rejected). If a transformer wins: BERT forward pass + WordPiece. If model2vec wins: WordPiece + lookup + mean pooling. Weights loaded from `go:embed`. Only extra dependency: `golang.org/x/text` v0.41.0 (BSD-3, needed for Unicode NFD in the tokenizer; v0.42+ requires Go 1.26). |
 | Weight precision | **f16** in the binary, converted to f32 at load (user decision, 2026-09-27; carried over from L12 to L6) |
@@ -105,8 +110,6 @@ no network calls.
 ### PROPOSED (confirm before the phase that uses it)
 | Topic | Proposal | Needed by |
 |---|---|---|
-| Vector search | Brute-force cosine in Go over float32 blobs (no sqlite-vec) | Phase 3 |
-| Search ranking | FTS5 BM25 + vector → Reciprocal Rank Fusion → recency/frequency/cwd boosts | Phase 3 |
 | TUI | Bubbletea + Bubbles + Lipgloss | Phase 5 |
 | Config format / location | TOML at `$XDG_CONFIG_HOME/loc/config.toml` | Phase 6 |
 | Bash hook mechanism | Vendored `bash-preexec` (verify license) vs `PS0` + `PROMPT_COMMAND` | Phase 4 |
@@ -123,8 +126,6 @@ no network calls.
 | O4 | Minimum supported bash and zsh versions | Phase 4 |
 | O5 | Should `loc` record commands run inside `ssh` sessions on remote hosts? (Probably out of scope for v1, but unconfirmed) | Phase 4 |
 | O6 | Go 1.26 is out (1.26.8 seen 2026-09-26), but 1.25.12 is installed locally. Move the project to Go 1.26? | Any time (low priority) |
-| O7 | `executions.source` gained a third value, `'manual'`, for `loc add`. Keep it? (Alternative: record `loc add` as `'live'`) | Phase 4 (before `loc record` ships) |
-| O8 | `commands.embedded_at` (schema v1) is unused since Phase 2: pending is derived from the `embeddings` table. Drop it in a migration, or keep it? | Any time (low priority) |
 
 ---
 
@@ -242,7 +243,7 @@ Each phase lists its **Goal**, **Tasks**, **Exit criteria** and **Out of scope**
 - [x] Ship the model's Apache-2.0 license text alongside the weights (`internal/embed/model/LICENSE` + `README.md` with source revision, checksums and modifications). Mention it in the top-level README when that is written (Phase 7).
 - [x] `make model`: download + SHA-256 verification (tested: a bad hash, a 404, and wrong content are all rejected with no partial file left). CI caches the file.
 - [x] Created the `model-minilm-l6-v2-f16` GitHub Release (prerelease, `--latest=false`) with the weights + LICENSE, 2026-09-27, with the user's OK. The local SHA-256 was verified before upload. A read-back check was declined by the user; CI's `make model` verifies the SHA-256 on first download, and the prerelease/not-latest flags must be confirmed before Phase 6's `install.sh` relies on "latest".
-- [x] Migration v2: `embeddings(command_id PK → commands ON DELETE CASCADE, model_id, dims, vector BLOB)`, tested including an upgrade of a v1 database with data. **Deviations to confirm:** (1) `meta.active_model` was not added, because the per-row `model_id` already makes old-model vectors count as pending, and search filters by the binary's `embed.ModelID`; (2) `commands.embedded_at` (schema v1) is now **unused**: "pending" is "no embedding row for the current model", which also covers model changes. Drop the column in a later migration? (**O8**)
+- [x] Migration v2: `embeddings(command_id PK → commands ON DELETE CASCADE, model_id, dims, vector BLOB)`, tested including an upgrade of a v1 database with data. `meta.active_model` was not added (the per-row `model_id` covers model changes; accepted 2026-09-27). `commands.embedded_at` was dropped in v3.
 - [x] `loc embed --pending [--workers N]`: batches of 64, most recently used first, saved per batch (Ctrl-C loses at most one batch), `flock` lockfile `<db>.embed.lock` (a second run exits 0 with a notice), parallel **across commands** (default workers = NumCPU/2 = 6 here). It does **not** lower its own CPU priority: Linux `setpriority` only affects one thread of a Go process, so Phase 4's hook should launch it with `nice`.
 - [x] `model_id` stored per vector (`embed.ModelID` = `all-MiniLM-L6-v2@1110a243/f16`). A different id makes every command pending again, and vectors from different models are never mixed (tested).
 - [x] Benchmarks: see the measurements below (load, per-token latency, real 369-command run with 1/6/12 workers, peak RAM)
@@ -281,17 +282,43 @@ Tried and measured A/B, **none helped**, so the code stays simple: cache tiling 
 **Goal:** Search results that beat both keyword-only and semantic-only search.
 
 **Tasks**
-- [ ] Vector search: load vectors and compute brute-force cosine. Benchmark at 10k / 100k / 500k rows.
-- [ ] FTS5 BM25 search (tokenizer config that handles `-`, `/`, `.`, `:` in commands). **The bake-off showed AND-only keyword search scores 0/40 on natural-language queries**: use OR-style matching (or AND for short, as-you-type queries and OR for sentences), decided by measuring on the eval set.
-- [ ] Reciprocal Rank Fusion of the two lists. **Tune it; don't assume it helps:** in the bake-off, naive RRF (k=60, equal weights) slightly *hurt* L6 (MRR 0.65 → 0.63). Try weights, k, and when keyword is allowed to win.
-- [ ] Boosts: recency, run_count, current dir / git root match, exit-code filter
-- [ ] Fallback (P7): no vectors → FTS only, with no error shown to the user
-- [ ] `loc search` output: command, dir, relative time, exit status, run count
-- [ ] Re-run the eval: keyword-only vs semantic-only vs hybrid
+- [x] Vector search: `store.EmbeddingMatrix` (one contiguous matrix) + `search.topKByDot` (heap top-k, verified against a full sort). Scan: 2.5 ms at 10k, 25 ms at 100k, 130–150 ms at 500k (battery).
+- [x] FTS5 BM25 keyword search (`store.KeywordIDs`, AND or OR mode). The default `unicode61` tokenizer is **kept**: splitting on `-` `/` `.` `:` worked on the fragment eval ("port-forward", "reset --soft", "base64 -d", "chmod +x" all found). **AND mode wins in hybrid** (below): a sentence rarely matches any command under AND, which leaves it to semantic ranking.
+- [x] Weighted Reciprocal Rank Fusion (`search.fuse`), tuned on two eval sets with a grid (`go run ./tools/eval --grid`). **Shipped `DefaultParams`: AND keywords, keyword weight 0.5, semantic weight 1, k=60.** This is a flat optimum: the neighbours k=60/kw=0.25 and k=20/kw=0.5 score the same. The earlier naive default (OR, equal weights) scored lower on both sets.
+- [x] Boosts, **decided by measurement**:
+  - **run_count boost: rejected.** Even w=0.001·ln(1+runs) dropped MRR 0.65→0.57 (questions) and 1.00→0.71 (fragments): frequent commands (`clear` ×93, `git branch` ×48) swamp relevance, because adjacent fused ranks differ by only ~0.0004.
+  - **recency and cwd/git-root boosts: deferred to after Phase 4.** They can't be measured yet: every imported command has the same time and cwd. Phase 4 capture provides real data (see the Phase 4 task).
+  - **exit-code / this-dir / this-session filters: moved to Phase 5** with the TUI filter keys, where their exact meaning gets decided (e.g. "failed" = last run failed, or any run failed?).
+- [x] Fallback (P7): no vectors → keyword results, silently (`TestSearchFallsBackToKeywords`). A real load *error* prints a one-line warning and still shows keyword matches.
+- [x] `loc search` output: command, then `~/dir · 3 weeks ago · exit 0 · 4 runs` (relative time, never negative on clock skew).
+- [x] Re-ran the eval through the shipped code path (`tools/eval` → `internal/search`). A second local eval set of **25 typed fragments** (`testdata/eval/fragments.jsonl`, gitignored) was added, because the 40 paraphrased questions deliberately avoid command words and can't show what keywords are good at.
+
+  | Ranker | Questions (40) top1/top5/MRR | Fragments (25) top1/top5/MRR |
+  |---|---|---|
+  | keyword AND | 0.00 / 0.00 / 0.00 | 0.96 / 1.00 / 0.98 |
+  | keyword OR | 0.40 / 0.53 / 0.47 | 0.96 / 1.00 / 0.98 |
+  | semantic only | 0.55 / 0.80 / 0.65 | 0.88 / 0.96 / 0.91 |
+  | **hybrid (DefaultParams)** | **0.55 / 0.80 / 0.65** | **1.00 / 1.00 / 1.00** |
+
+**Measurements (2026-09-27, battery, fresh process per search)**
+
+| Step | 369 cmds (user) | 10k | 100k | 500k |
+|---|---|---|---|---|
+| Model load (after the f16 lookup table: ~105 → ~70 ms, same-run A/B 1.4×) | 70 ms | 70 ms | 70 ms | 70 ms |
+| Query embedding (median 11 tokens) | 63 ms | 63 ms | 63 ms | 63 ms |
+| Load vectors from SQLite (`EmbeddingMatrix`, ~8 allocs/row) | <5 ms | 58 ms | **556 ms** | ~2.8 s (extrapolated) |
+| Brute-force top-k scan (`topKByDot`) | <1 ms | 2.5 ms | 25 ms | 130–150 ms |
+| Keyword (FTS5) | <1 ms | | | |
+
+Finding: **< 100 ms end-to-end per fresh process is not reachable on battery at any size** with the current design. Model load + query embedding alone are ~133 ms. At 100k, loading vectors from SQLite dominates (556 ms). Scanning is not the problem. **Decision (user, 2026-09-27): "target what users feel"**: keyword results < 50 ms at 100k; semantic ready < 300 ms at 10k; SQLite stays the only store; revisit if real histories exceed ~30k.
 
 **Exit criteria**
-- [ ] Hybrid ≥ the better of the two single methods on **top-1 and MRR** (not just recall@5: Enter takes the top result) in the eval (numbers recorded). Bake-off baseline to beat: L6 semantic-only top-1 0.55 / top-5 0.80 / MRR 0.65.
-- [ ] Search latency at 100k commands is measured and recorded. Target: < 100 ms end-to-end, **to be confirmed**.
+- [x] Hybrid ≥ the better of the two single methods on **top-1 and MRR**: equal to semantic on questions, above both on fragments (table above). Caveat: 65 queries, all drafted by Claude; differences under ~0.10 are noise.
+- [x] Latency measured against the revised targets (user decision 2026-09-27: "target what users feel"):
+  - **Keyword first results < 50 ms at 100k: met, 1–12 ms** including opening the DB (`BenchmarkKeywordLatency`, `LOC_BENCH_DB`).
+  - **Semantic ready < 300 ms at 10k: met, ~0.19 s** end-to-end for the real `loc search` process (5 runs: 0.16–0.21 s). The user's 369 commands: ~0.17 s. 100k: ~0.75 s (no target).
+  - Model and vectors load in parallel in background goroutines (`search.New`).
+  - Peak RSS of `loc search`: 148 MB (369 commands), 185 MB (10k), **537 MB (100k)** (see backlog).
 
 **Out of scope:** TUI, hooks.
 
@@ -311,6 +338,7 @@ Tried and measured A/B, **none helped**, so the code stays simple: cache tiling 
 - [ ] Session id per shell instance, plus hostname
 - [ ] Background embedding trigger: after recording, start `loc embed --pending` if no worker holds the lock (debounced, detached)
 - [ ] Importer: `~/.bash_history` (plain, and with timestamps) and `~/.zsh_history` (plain, and extended format). Scrub everything, mark `source='import'`.
+- [ ] **Deferred from Phase 3:** once capture has real timestamps and directories, build an eval with context (query + cwd + time) and measure recency and cwd/git-root boosts. Ship them only if they beat `DefaultParams`.
 - [ ] Edge-case tests: very long commands, unicode, commands with newlines, rapid-fire commands, Ctrl-C'd commands, `exit`
 
 **Exit criteria**
@@ -413,7 +441,7 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 
 ## 6. Progress log
 
-**Current phase: Phase 3 (not started)**. Phase 2 is complete: the user commits the Phase 2 work first.
+**Current phase: Phase 4 (not started)**. Phase 3 is complete: the user commits it first.
 
 | Date | Phase | What happened / evidence |
 |---|---|---|
@@ -421,12 +449,14 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 | 2026-09-26 | Phase 0 ✅ | Private repo `AniketR10/loc` created. Local: vet + staticcheck + tests pass; `bin/loc` is statically linked (`ldd`: not a dynamic executable), 1.5 MB. First CI run passed: https://github.com/AniketR10/loc/actions/runs/36258401581. LICENSE was added by the user in 8d30b1b. |
 | 2026-09-27 | Phase 1 ✅ | Scrubber (4 layers, 43 positive / 51 negative corpus, fuzzed) + SQLite store (schema v1, migrations, WAL, 0600/0700) + `loc add` / `loc search`. All exit criteria pass locally (`make lint test check-static`). The fuzzer found and fixed a multi-password leak. Not yet committed: the user commits. |
 | 2026-09-27 | Phase 2 ✅ | Bake-off (L6 chosen; `docs/decisions/0001-embedding-model.md`), exact pure-Go tokenizer + BERT (cosine 1.0000000 f32 / 0.9999992 f16), f16 weights via `make model` + GitHub Release, schema v2 `embeddings`, `loc embed --pending`, Go eval harness reproducing the bake-off (0.55/0.80/0.65). Speed accepted by the user. Not committed yet: the user commits. |
+| 2026-09-27 | Phase 3 ✅ | Hybrid search (`internal/search`): AND keywords + semantic, weighted RRF (kw 0.5, k=60), tuned on 40 questions + 25 fragments (0.55/0.80/0.65 and 1.00/1.00/1.00). run_count boost rejected by measurement; recency/cwd boosts deferred to after Phase 4; filters moved to Phase 5. Targets revised with the user and met (keyword 1–12 ms at 100k; semantic ~0.19 s at 10k). Schema v3 drops `embedded_at`; f16 lookup table (load 105→70 ms). Not committed yet: the user commits. |
 
 ---
 
 ## 7. Backlog (unscheduled)
 _Ideas that come up mid-phase go here, not into the code._
 
+- Memory at scale: `loc search` peaks at 537 MB with 100k commands (154 MB f32 vectors + SQLite blob copies while loading; `EmbeddingMatrix` allocates ~470 MB at 100k). Options to measure: stream-decode without per-row copies, or store vectors as f16/int8 (2–4× smaller).
 - Memory: `loc embed` peaks at ~230 MB RSS (f32 weights + the embedded f16 copy + GC headroom). Before the TUI (Phase 5) holds the model for a whole session, try `debug.SetGCPercent`/`SetMemoryLimit` or dropping the f16 bytes after conversion, measured A/B.
 - Scrubber gap (found 2026-09-27 on real history): Langfuse secret keys `sk-lf-<uuid>` are only caught next to a telling name (`*_SECRET_KEY=`). Passed bare, the hex+dash value is skipped by the entropy layer. Add a known-token rule for `sk-lf-` (and ask whether `pk-lf-` public keys should be redacted too).
 - CI: GitHub says `ubuntu-latest` moves to Ubuntu 26 from 2026-10-19. Static binaries shouldn't care, but check the first CI run after that date.
