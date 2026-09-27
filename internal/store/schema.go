@@ -54,6 +54,18 @@ CREATE TRIGGER commands_fts_update AFTER UPDATE OF text ON commands BEGIN
 	INSERT INTO commands_fts(rowid, text) VALUES (new.id, new.text);
 END;
 `,
+
+	// v2: one embedding per command. model_id records which model produced
+	// the vector, so after a model change every command counts as pending
+	// again and vectors from different models are never compared.
+	`
+CREATE TABLE embeddings (
+	command_id INTEGER PRIMARY KEY REFERENCES commands(id) ON DELETE CASCADE,
+	model_id   TEXT    NOT NULL,
+	dims       INTEGER NOT NULL,
+	vector     BLOB    NOT NULL -- dims little-endian float32 values
+) STRICT;
+`,
 }
 
 // SchemaVersion is the schema version this build of loc writes.
