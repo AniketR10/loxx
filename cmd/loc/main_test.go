@@ -93,3 +93,44 @@ func TestAddUsageErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestEmbedPending(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "history.db")
+	t.Setenv("LOC_DB_PATH", path)
+	runOK(t, "add", "git status")
+	runOK(t, "add", "docker compose up -d")
+
+	_, stderr := runOK(t, "embed", "--pending", "--workers", "2")
+	if !strings.Contains(stderr, "embedded 2 command(s)") {
+		t.Errorf("first run: stderr = %q", stderr)
+	}
+	// Nothing left to do: a second run is silent.
+	if _, stderr = runOK(t, "embed", "--pending"); stderr != "" {
+		t.Errorf("second run should be silent, got %q", stderr)
+	}
+
+	// While another embed holds the lock, a new one exits cleanly.
+	runOK(t, "add", "ls -la")
+	unlock, err := tryLock(path + ".embed.lock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, stderr = runOK(t, "embed", "--pending")
+	unlock()
+	if !strings.Contains(stderr, "already running") {
+		t.Errorf("locked run: stderr = %q", stderr)
+	}
+	if _, stderr = runOK(t, "embed", "--pending"); !strings.Contains(stderr, "embedded 1 command(s)") {
+		t.Errorf("after unlock: stderr = %q", stderr)
+	}
+}
+
+func TestEmbedUsage(t *testing.T) {
+	t.Setenv("LOC_DB_PATH", filepath.Join(t.TempDir(), "history.db"))
+	for _, args := range [][]string{{"embed"}, {"embed", "--pending", "x"}, {"embed", "--pending", "--workers", "0"}} {
+		var out, errOut bytes.Buffer
+		if code := run(args, &out, &errOut); code != 2 {
+			t.Errorf("loc %q: exit %d, want 2", args, code)
+		}
+	}
+}
