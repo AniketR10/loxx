@@ -21,7 +21,7 @@ func commands() []command {
 	return []command{
 		{name: "add", summary: "record a command manually", run: runAdd},
 		{name: "embed", summary: "embed commands for semantic search", run: runEmbed},
-		{name: "search", summary: "search recorded commands by keyword", run: runSearch},
+		{name: "search", summary: "search recorded commands by meaning and keyword", run: runSearch},
 		{name: "version", summary: "print the loc version", run: runVersion},
 	}
 }
