@@ -5,3 +5,9 @@
 *.db
 *.db-wal
 *.db-shm
+
+# Eval sets built from real personal history stay local unless the user decides otherwise
+/testdata/eval/
+
+# Model weights are downloaded by `make model`, not stored in git
+/internal/embed/model/*.safetensors
