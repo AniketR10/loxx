@@ -21,6 +21,9 @@ func commands() []command {
 	return []command{
 		{name: "add", summary: "record a command manually", run: runAdd},
 		{name: "embed", summary: "embed commands for semantic search", run: runEmbed},
+		{name: "import", summary: "import existing bash/zsh history", run: runImport},
+		{name: "init", summary: "print the shell hook that records commands", run: runInit},
+		{name: "record", summary: "record a finished command (used by the shell hook)", run: runRecord},
 		{name: "search", summary: "search recorded commands by meaning and keyword", run: runSearch},
 		{name: "version", summary: "print the loc version", run: runVersion},
 	}

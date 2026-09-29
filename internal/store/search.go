@@ -13,9 +13,9 @@ type Result struct {
 	CommandID int64
 	Text      string
 	RunCount  int
-	LastSeen  time.Time
-	Cwd       string // "" when unknown
-	ExitCode  *int   // nil when unknown
+	LastRun   *time.Time // start of the most recent run with a known time; nil if none (e.g. imported)
+	Cwd       string     // "" when unknown
+	ExitCode  *int       // nil when unknown
 }
 
 // MatchMode says how the words of a keyword query combine.
@@ -68,7 +68,7 @@ func (db *DB) Results(ctx context.Context, ids []int64) ([]Result, error) {
 		args[i] = id
 	}
 	rows, err := db.sql.QueryContext(ctx, `
-		SELECT c.id, c.text, c.run_count, c.last_seen, e.cwd, e.exit_code
+		SELECT c.id, c.text, c.run_count, e.started_at, e.cwd, e.exit_code
 		FROM commands c
 		LEFT JOIN executions e ON e.id = (
 			SELECT id FROM executions WHERE command_id = c.id
@@ -82,15 +82,18 @@ func (db *DB) Results(ctx context.Context, ids []int64) ([]Result, error) {
 	byID := make(map[int64]Result, len(ids))
 	for rows.Next() {
 		var (
-			r        Result
-			lastSeen int64
-			cwd      sql.NullString
-			exitCode sql.NullInt64
+			r         Result
+			startedAt sql.NullInt64
+			cwd       sql.NullString
+			exitCode  sql.NullInt64
 		)
-		if err := rows.Scan(&r.CommandID, &r.Text, &r.RunCount, &lastSeen, &cwd, &exitCode); err != nil {
+		if err := rows.Scan(&r.CommandID, &r.Text, &r.RunCount, &startedAt, &cwd, &exitCode); err != nil {
 			return nil, err
 		}
-		r.LastSeen = time.UnixMilli(lastSeen)
+		if startedAt.Valid {
+			t := time.UnixMilli(startedAt.Int64)
+			r.LastRun = &t
+		}
 		r.Cwd = cwd.String
 		if exitCode.Valid {
 			code := int(exitCode.Int64)

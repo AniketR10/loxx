@@ -88,6 +88,11 @@ no network calls.
 | Vector search | **Brute-force cosine in Go** over stored float32 vectors, no sqlite-vec (user, 2026-09-27) |
 | Search ranking | **Keyword BM25 + semantic, fused (RRF), then recency/frequency/cwd boosts**, with every weight **tuned against the eval set, not assumed** (user, 2026-09-27) |
 | Search latency target | **Keyword results < 50 ms at 100k; semantic results ready < 300 ms at 10k** (user, 2026-09-27; replaced "< 100 ms end-to-end at 100k" after measurements showed model load + query embedding alone take ~133 ms on battery). SQLite stays the only store; revisit if real histories exceed ~30k commands. |
+| Bash hook mechanism | **Vendored `bash-preexec`** (user, 2026-09-28). License to be verified before vendoring (expected MIT). Known trade-off: it uses bash's DEBUG trap, which can clash with other tools that set their own. |
+| Imported commands without timestamps | **Time unknown**: `executions.started_at` is NULL and the UI shows "imported" instead of a relative time. `commands.first_seen/last_seen` still hold the import time for internal ordering only (user, 2026-09-28; was O2) |
+| Minimum shell versions | **bash ≥ 4.4, zsh ≥ 5.1** (user, 2026-09-28; was O4) |
+| Commands inside `ssh` sessions | **Out of scope for v1**: loc records only on the machine where it is installed. No syncing or forwarding (user, 2026-09-28; was O5) |
+| Prompt-overhead target | **≤ 10 ms added per command** (user, 2026-09-28, after measuring bash +3.9 ms and zsh +1.3 ms) |
 | Language policy | **Dev-only tooling may use any language** (Python for model conversion, golden generation, bake-offs). **Code that ships to users stays Go**, because of P1 (fast startup on every prompt), P3/P4 (single static binary, zero setup) and the install-only promise, not out of language preference. (User said the focus is performance and correctness, not language, 2026-09-27) |
 | Inference implementation | **Hand-written pure Go** (user decision, 2026-09-27; hugot rejected). If a transformer wins: BERT forward pass + WordPiece. If model2vec wins: WordPiece + lookup + mean pooling. Weights loaded from `go:embed`. Only extra dependency: `golang.org/x/text` v0.41.0 (BSD-3, needed for Unicode NFD in the tokenizer; v0.42+ requires Go 1.26). |
 | Weight precision | **f16** in the binary, converted to f32 at load (user decision, 2026-09-27; carried over from L12 to L6) |
@@ -112,7 +117,6 @@ no network calls.
 |---|---|---|
 | TUI | Bubbletea + Bubbles + Lipgloss | Phase 5 |
 | Config format / location | TOML at `$XDG_CONFIG_HOME/loc/config.toml` | Phase 6 |
-| Bash hook mechanism | Vendored `bash-preexec` (verify license) vs `PS0` + `PROMPT_COMMAND` | Phase 4 |
 | Linux architectures | amd64 + arm64 | Phase 7 |
 | Release tooling | GoReleaser + GitHub Actions | Phase 7 |
 | Distro packages | AUR, Fedora COPR, others | Phase 7 |
@@ -121,10 +125,7 @@ no network calls.
 | # | Question | Blocks |
 |---|---|---|
 | O1 | The name `loc` is also used by an existing lines-of-code counter (`cgag/loc`). Keep `loc` anyway? | Phase 7 (packaging names) |
-| O2 | Should imported bash history without timestamps (no `HISTTIMEFORMAT`) get the import time, or no time at all? | Phase 4 |
 | O3 | Install URL / hosting for `install.sh` (GitHub raw? GitHub Pages? a custom domain?) | Phase 6 |
-| O4 | Minimum supported bash and zsh versions | Phase 4 |
-| O5 | Should `loc` record commands run inside `ssh` sessions on remote hosts? (Probably out of scope for v1, but unconfirmed) | Phase 4 |
 | O6 | Go 1.26 is out (1.26.8 seen 2026-09-26), but 1.25.12 is installed locally. Move the project to Go 1.26? | Any time (low priority) |
 
 ---
@@ -327,24 +328,29 @@ Finding: **< 100 ms end-to-end per fresh process is not reachable on battery at 
 ### Phase 4: Capture (shell hooks + import)
 **Goal:** Every command in bash and zsh is recorded automatically without slowing the prompt.
 
-**Prereqs:** install zsh on the dev machine. Answer O2, O4, O5.
+**Prereqs:** install zsh on the dev machine (**pending: the user runs `sudo dnf install zsh`**). O2, O4 and O5 are answered (§3, 2026-09-28).
+
+zsh 5.9 turned out to be installed already.
 
 **Tasks**
-- [ ] `loc record`: minimal fast path (open DB → scrub → insert → exit). No model loading.
-- [ ] Benchmark `loc record` latency. The hook must detach it (background it so the prompt never waits).
-- [ ] `shell/loc.zsh`: `preexec` saves the command and start time; `precmd` gets exit code and duration and calls `loc record &!`
-- [ ] `shell/loc.bash`: same behavior via the chosen mechanism (§3 PROPOSED). Handle `HISTCONTROL`, multi-line commands, and subshells.
-- [ ] `loc init bash|zsh`: prints the hook script (embedded with `go:embed`)
-- [ ] Session id per shell instance, plus hostname
-- [ ] Background embedding trigger: after recording, start `loc embed --pending` if no worker holds the lock (debounced, detached)
-- [ ] Importer: `~/.bash_history` (plain, and with timestamps) and `~/.zsh_history` (plain, and extended format). Scrub everything, mark `source='import'`.
-- [ ] **Deferred from Phase 3:** once capture has real timestamps and directories, build an eval with context (query + cwd + time) and measure recency and cwd/git-root boosts. Ship them only if they beat `DefaultParams`.
-- [ ] Edge-case tests: very long commands, unicode, commands with newlines, rapid-fire commands, Ctrl-C'd commands, `exit`
+- [x] `loc record [--exit N] [--start T] [--end T] [--cwd DIR] [--session ID] -- CMD`: open DB → scrub → insert → exit, no model loading. Also stores the git root (walks up to `.git`, a dir or a worktree file) and the hostname. Accepts `EPOCHREALTIME` with a comma decimal (some locales). Ignored and empty commands exit 0 silently.
+- [x] `loc record` latency: **7.2 ms** median per run (background; the prompt never waits for it).
+- [x] `shell/loc.zsh`: native `preexec`/`precmd` (runs first among precmd hooks so `$?` is intact), backgrounds `loc record` with `&!`.
+- [x] `shell/loc.bash`: bash-preexec 0.7.0 vendored unmodified (MIT notice printed as comments), sourced from a here-document so its top-level `return` can't skip the rest of `.bashrc`. **bash-preexec strips `ignorespace` from HISTCONTROL** (so it can see every command), which would make bash save space-prefixed commands to its history file; the hook detects the user's original setting and deletes those entries itself (tested). On bash ≥ 5.3 bash-preexec uses PS0, not the DEBUG trap. Timestamps: `$EPOCHREALTIME` on bash 5+, whole seconds via `printf '%(%s)T'` on 4.4 (no forks).
+- [x] `loc init bash|zsh`: prints the hook with the `loc` binary's absolute path filled in (shell-quoted).
+- [x] Session id per shell instance (`$$-<start time>`), plus hostname.
+- [x] Background embedding trigger: `startBackgroundEmbed` → `nice -n 10 loc embed --pending --wait 2s`, detached (`setsid`), only when no embed holds the lock; the 2 s wait batches rapid commands into one model load. `LOC_BACKGROUND_EMBED=0` disables it (tests must).
+- [x] Importer (`internal/importer`, `loc import`): bash plain and `#<epoch>`-timestamped (multi-line entries rejoined), zsh plain and extended (duration kept, backslash continuations, **unmetafied**: zsh escapes bytes 0x00 and 0x83–0xA2). Scrubbed, `source='import'`, one transaction (`store.AddBatch`), idempotent per file via a `meta` marker (`--force` re-imports). Imported commands without times show **"imported"** (`Result.LastRun` is nil).
+- [x] **Deferred from Phase 3 → moved to the backlog** (user, 2026-09-28): the recency/cwd-boost eval needs ~2 weeks of real captured history.
+- [x] Edge cases, tested in **real interactive bash and zsh** running in a pseudo-terminal opened in Go (`TestShellHooks`, `TestShellHooksRapidFire`; no `script(1)` dependency, temp HOME/HISTFILE): exit codes, cwd, session, time, duration; unicode; a multi-line `for` loop stored as one command; Ctrl-C'd `sleep` → exit 130; space-prefixed commands not recorded (and kept out of bash's history); **100 typed-ahead commands → exactly 100 records**. Not tested: commands over Linux's 128 KiB single-argument limit can't be passed to `loc record` and are silently not recorded (accepted; it only affects absurdly long commands).
 
 **Exit criteria**
-- [ ] Measured prompt overhead with the hook vs without it is recorded (target: not perceptible; the number is decided with the user)
-- [ ] 1 day of real use in both bash and zsh: every command recorded, none duplicated or lost (spot-checked)
-- [ ] Import of your real history completes and is searchable
+- [x] Prompt overhead measured (`LOC_BENCH_HOOKS=1 go test ./cmd/loc -run TestHookOverhead`, median of 5 bursts of 200 typed-ahead commands; power state not noted): **bash +3.9 ms per command, zsh +1.3 ms**. **Target (user, 2026-09-28): ≤ 10 ms per command: met.** bash costs more because bash-preexec forks for `$(history 1)` and the hook forks once more to background `loc record` silently.
+- [x] 1 day of real use (2026-09-28 19:04 → 09-29 16:39), checked against the real DB read-only: **41 live commands over 13 sessions, every field filled, 0 duplicates, 0 space-prefixed recorded, 0 pending embeddings**, files 0600/0700. Cross-checked with `~/.bash_history`, which had two commands loc lacked:
+  - ` source …/activate`: space-prefixed, so correctly not recorded. bash saved it only because Fedora's `/etc/profile` sets `HISTCONTROL=ignoredups` (no `ignorespace`); the hook correctly leaves that alone.
+  - `tmux`: **a real gap, now fixed.** The terminal was closed while tmux ran, so the shell died without another prompt and the command was lost. Now an exit hook (bash `EXIT` trap chained onto any existing one; zsh `zshexit`) records the in-flight command with its exit code and duration unknown (user decision, 2026-09-29). Tested with SIGHUP in both shells (`TestShellHooksHangup`). A typed `exit` is now recorded too.
+  - **Also found and fixed during this check:** `TestConcurrentWriters` had turned flaky (10 of 15 runs lost writers): processes racing to set up a *new* database got `SQLITE_BUSY` at the first connection (WAL switch) without busy_timeout applying. `store.Open` now holds an exclusive `flock` on `history.db.lock` for the first connection and migration check (20/20 runs pass; `loc record` 4.1 ms median on AC). `loc uninstall` (Phase 6) must remove `history.db.lock` and `history.db.embed.lock`.
+- [x] Import of the user's real history completes and is searchable (2026-09-28): 965 commands from `~/.bash_history`, 25 space-prefixed skipped, 1 secret redacted; results show "imported". This surfaced a bug, now fixed: `make build`'s version came from the nearest *any* tag (`model-minilm-l6-v2-f16-15-g…`); `VERSION` now only matches `v[0-9]*` tags.
 
 **Out of scope:** TUI, the Ctrl-R binding, installer.
 
@@ -441,7 +447,7 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 
 ## 6. Progress log
 
-**Current phase: Phase 4 (not started)**. Phase 3 is complete: the user commits it first.
+**Current phase: Phase 5 (not started)**. Phase 4 is complete: the user commits it first. Confirm §3 PROPOSED "TUI: Bubbletea + Bubbles + Lipgloss" before starting.
 
 | Date | Phase | What happened / evidence |
 |---|---|---|
@@ -450,12 +456,14 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 | 2026-09-27 | Phase 1 ✅ | Scrubber (4 layers, 43 positive / 51 negative corpus, fuzzed) + SQLite store (schema v1, migrations, WAL, 0600/0700) + `loc add` / `loc search`. All exit criteria pass locally (`make lint test check-static`). The fuzzer found and fixed a multi-password leak. Not yet committed: the user commits. |
 | 2026-09-27 | Phase 2 ✅ | Bake-off (L6 chosen; `docs/decisions/0001-embedding-model.md`), exact pure-Go tokenizer + BERT (cosine 1.0000000 f32 / 0.9999992 f16), f16 weights via `make model` + GitHub Release, schema v2 `embeddings`, `loc embed --pending`, Go eval harness reproducing the bake-off (0.55/0.80/0.65). Speed accepted by the user. Not committed yet: the user commits. |
 | 2026-09-27 | Phase 3 ✅ | Hybrid search (`internal/search`): AND keywords + semantic, weighted RRF (kw 0.5, k=60), tuned on 40 questions + 25 fragments (0.55/0.80/0.65 and 1.00/1.00/1.00). run_count boost rejected by measurement; recency/cwd boosts deferred to after Phase 4; filters moved to Phase 5. Targets revised with the user and met (keyword 1–12 ms at 100k; semantic ~0.19 s at 10k). Schema v3 drops `embedded_at`; f16 lookup table (load 105→70 ms). Not committed yet: the user commits. |
+| 2026-09-29 | Phase 4 ✅ | Capture: `loc record`, `loc import`, `loc init bash|zsh` (bash-preexec 0.7.0 vendored; ignorespace preserved; exit hook for commands interrupted by closing the terminal), background embed trigger. Tested in real bash/zsh in a pty (edge cases, 100-command rapid fire, hangup). Overhead bash +3.9 ms / zsh +1.3 ms (target ≤ 10 ms). Real use: 1 day, 41 commands, 0 duplicates; fixed the tmux/hangup loss, the model-tag version string, and a new-database SQLITE_BUSY race. Not committed yet: the user commits. |
 
 ---
 
 ## 7. Backlog (unscheduled)
 _Ideas that come up mid-phase go here, not into the code._
 
+- **Recency and cwd/git-root boosts** (deferred from Phase 3, moved here from Phase 4 by the user on 2026-09-28): after ~2 weeks of real captured history, build an eval with context (query + cwd + time) and measure the boosts. Ship them only if they beat `DefaultParams`.
 - Memory at scale: `loc search` peaks at 537 MB with 100k commands (154 MB f32 vectors + SQLite blob copies while loading; `EmbeddingMatrix` allocates ~470 MB at 100k). Options to measure: stream-decode without per-row copies, or store vectors as f16/int8 (2–4× smaller).
 - Memory: `loc embed` peaks at ~230 MB RSS (f32 weights + the embedded f16 copy + GC headroom). Before the TUI (Phase 5) holds the model for a whole session, try `debug.SetGCPercent`/`SetMemoryLimit` or dropping the f16 bytes after conversion, measured A/B.
 - Scrubber gap (found 2026-09-27 on real history): Langfuse secret keys `sk-lf-<uuid>` are only caught next to a telling name (`*_SECRET_KEY=`). Passed bare, the hex+dash value is skipped by the entropy layer. Add a known-token rule for `sk-lf-` (and ask whether `pk-lf-` public keys should be redacted too).

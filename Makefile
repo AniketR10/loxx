@@ -1,5 +1,7 @@
 STATICCHECK_VERSION := 2026.1
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+# Only v* tags are loc versions; other tags (e.g. model-minilm-l6-v2-f16, the
+# model weights release) must not become the version string.
+VERSION ?= $(shell git describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
 export CGO_ENABLED := 0
