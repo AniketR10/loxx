@@ -32,16 +32,18 @@ const (
 	MatchAny
 )
 
-// KeywordIDs returns up to limit ids of commands matching query, best BM25
-// match first. Each word also matches as a prefix.
-func (db *DB) KeywordIDs(ctx context.Context, query string, mode MatchMode, limit int) ([]int64, error) {
+// KeywordIDs returns up to limit ids of commands matching query and kept by
+// f, best BM25 match first. Each word also matches as a prefix.
+func (db *DB) KeywordIDs(ctx context.Context, query string, mode MatchMode, f Filter, limit int) ([]int64, error) {
 	match := ftsQuery(query, mode)
 	if match == "" {
 		return nil, nil
 	}
+	cond, args := f.where()
 	rows, err := db.sql.QueryContext(ctx, `
-		SELECT rowid FROM commands_fts WHERE commands_fts MATCH ?
-		ORDER BY bm25(commands_fts) LIMIT ?`, match, limit)
+		SELECT commands_fts.rowid FROM commands_fts JOIN commands c ON c.id = commands_fts.rowid
+		WHERE commands_fts MATCH ? AND `+cond+`
+		ORDER BY bm25(commands_fts) LIMIT ?`, append(append([]any{match}, args...), limit)...)
 	if err != nil {
 		return nil, err
 	}

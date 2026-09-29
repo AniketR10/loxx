@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/AniketR10/loc/internal/format"
 	"github.com/AniketR10/loc/internal/importer"
 	"github.com/AniketR10/loc/internal/scrub"
 	"github.com/AniketR10/loc/internal/store"
@@ -93,7 +94,7 @@ func runImport(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "loc import:", err)
 			return 1
 		} else if done && !*force {
-			fmt.Fprintf(stderr, "loc: %s was already imported (use --force to import it again)\n", tildePath(abs, home))
+			fmt.Fprintf(stderr, "loc: %s was already imported (use --force to import it again)\n", format.TildePath(abs, home))
 			continue
 		}
 		f, err := os.Open(abs)
@@ -142,7 +143,7 @@ func runImport(args []string, stdout, stderr io.Writer) int {
 		}
 		imported += len(execs)
 		fmt.Fprintf(stderr, "loc: imported %d command(s) from %s (%d secret(s) redacted, %d skipped)\n",
-			len(execs), tildePath(abs, home), redactions, skipped)
+			len(execs), format.TildePath(abs, home), redactions, skipped)
 	}
 	if imported > 0 {
 		if err := startBackgroundEmbed(path); err != nil {

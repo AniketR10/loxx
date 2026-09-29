@@ -13,16 +13,19 @@ type scored struct {
 }
 
 // topKByDot returns the k rows of vectors (row-major, dims wide, row i
-// belonging to ids[i]) with the highest dot product with q, best first. The
-// stored vectors and q are unit length, so the dot product is the cosine
-// similarity.
-func topKByDot(q []float32, ids []int64, vectors []float32, dims, k int) []scored {
+// belonging to ids[i]) with the highest dot product with q, best first,
+// considering only ids in allowed (nil means all). The stored vectors and q
+// are unit length, so the dot product is the cosine similarity.
+func topKByDot(q []float32, ids []int64, vectors []float32, dims, k int, allowed map[int64]bool) []scored {
 	if k <= 0 || len(ids) == 0 {
 		return nil
 	}
 	q = q[:dims]
 	h := make(minHeap, 0, k)
 	for i, id := range ids {
+		if allowed != nil && !allowed[id] {
+			continue
+		}
 		row := vectors[i*dims : (i+1)*dims]
 		var s0, s1, s2, s3 float32
 		j := 0

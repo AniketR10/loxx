@@ -88,40 +88,64 @@ func (s *Searcher) SemanticErr() error {
 	return s.loadErr
 }
 
-// Search returns up to limit commands for query, best first.
-func (s *Searcher) Search(ctx context.Context, query string, limit int, p Params) ([]store.Result, error) {
-	ids, err := s.Rank(ctx, query, limit, p)
+// Search returns up to limit commands for query kept by f, best first.
+func (s *Searcher) Search(ctx context.Context, query string, limit int, p Params, f store.Filter) ([]store.Result, error) {
+	ids, err := s.Rank(ctx, query, limit, p, f)
 	if err != nil {
 		return nil, err
 	}
 	return s.db.Results(ctx, ids)
 }
 
-// Rank returns the ids of up to limit commands for query, best first.
-func (s *Searcher) Rank(ctx context.Context, query string, limit int, p Params) ([]int64, error) {
+// Rank returns the ids of up to limit commands for query kept by f, best
+// first. It waits for the model and vectors to load.
+func (s *Searcher) Rank(ctx context.Context, query string, limit int, p Params, f store.Filter) ([]int64, error) {
 	var keyword []int64
 	if p.KeywordWeight > 0 {
 		var err error
-		if keyword, err = s.db.KeywordIDs(ctx, query, p.KeywordMode, candidates); err != nil {
+		if keyword, err = s.db.KeywordIDs(ctx, query, p.KeywordMode, f, candidates); err != nil {
 			return nil, err
 		}
 	}
 	var semantic []int64
 	if p.SemanticWeight > 0 {
-		semantic = s.semantic(query, candidates)
+		allowed, err := s.db.FilterIDs(ctx, f)
+		if err != nil {
+			return nil, err
+		}
+		semantic = s.semantic(query, allowed, candidates)
 	}
 	ids := fuse(keyword, semantic, p)
 	return ids[:min(limit, len(ids))], nil
 }
 
-// semantic returns the ids of the k stored vectors closest to query, or nil
-// when semantic search is unavailable (core principle P7: fall back to
-// keywords instead of failing).
-func (s *Searcher) semantic(query string, k int) []int64 {
+// Keyword returns up to limit commands matching query as keywords, kept by f.
+// It never waits for the model, so the search panel can show it instantly.
+func (s *Searcher) Keyword(ctx context.Context, query string, limit int, f store.Filter) ([]store.Result, error) {
+	ids, err := s.db.KeywordIDs(ctx, query, DefaultParams.KeywordMode, f, limit)
+	if err != nil {
+		return nil, err
+	}
+	return s.db.Results(ctx, ids)
+}
+
+// Recent returns up to limit of the most recently run commands kept by f.
+func (s *Searcher) Recent(ctx context.Context, limit int, f store.Filter) ([]store.Result, error) {
+	ids, err := s.db.RecentIDs(ctx, f, limit)
+	if err != nil {
+		return nil, err
+	}
+	return s.db.Results(ctx, ids)
+}
+
+// semantic returns the ids of the k stored vectors closest to query among
+// allowed (nil means all), or nil when semantic search is unavailable (core
+// principle P7: fall back to keywords instead of failing).
+func (s *Searcher) semantic(query string, allowed map[int64]bool, k int) []int64 {
 	if s.SemanticErr() != nil || len(s.ids) == 0 {
 		return nil
 	}
-	top := topKByDot(s.model.Embed(query), s.ids, s.vectors, s.dims, k)
+	top := topKByDot(s.model.Embed(query), s.ids, s.vectors, s.dims, k, allowed)
 	ids := make([]int64, len(top))
 	for i, t := range top {
 		ids[i] = t.id

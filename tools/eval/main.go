@@ -114,7 +114,7 @@ func modeName(m store.MatchMode) string {
 }
 
 func score(ctx context.Context, s *search.Searcher, r row, queries []evalQuery) error {
-	return scoreWith(ctx, r, queries, func(q string) ([]int64, error) { return s.Rank(ctx, q, topK, r.p) })
+	return scoreWith(ctx, r, queries, func(q string) ([]int64, error) { return s.Rank(ctx, q, topK, r.p, store.Filter{}) })
 }
 
 func scoreWith(ctx context.Context, r row, queries []evalQuery, rank func(string) ([]int64, error)) error {

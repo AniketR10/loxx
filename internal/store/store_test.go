@@ -170,7 +170,7 @@ func TestKeywordIDs(t *testing.T) {
 		{"", MatchAny, nil},
 	}
 	for _, tt := range tests {
-		got, err := db.KeywordIDs(ctx, tt.query, tt.mode, 5)
+		got, err := db.KeywordIDs(ctx, tt.query, tt.mode, Filter{}, 5)
 		if err != nil {
 			t.Errorf("KeywordIDs(%q, %v): %v", tt.query, tt.mode, err)
 			continue
