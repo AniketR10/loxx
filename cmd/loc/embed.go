@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"runtime"
 	"sync"
@@ -25,7 +26,7 @@ func runEmbed(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("embed", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, "Usage: loc embed --pending [--workers N]")
+		fmt.Fprintln(stderr, "Usage: loc embed --pending [--workers N] [--wait DURATION]")
 		fmt.Fprintln(stderr)
 		fmt.Fprintln(stderr, "Embeds every command that has no vector from the built-in model yet.")
 		fmt.Fprintln(stderr, "Only one embed runs at a time; a second one exits immediately.")
@@ -34,13 +35,14 @@ func runEmbed(args []string, stdout, stderr io.Writer) int {
 	}
 	pending := fs.Bool("pending", false, "embed all commands that have no vector yet (required)")
 	workers := fs.Int("workers", max(1, runtime.NumCPU()/2), "commands embedded in parallel")
+	wait := fs.Duration("wait", 0, "after taking the lock, wait this long first, so commands run in quick succession are embedded together")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
 		return 2
 	}
-	if !*pending || fs.NArg() != 0 || *workers < 1 {
+	if !*pending || fs.NArg() != 0 || *workers < 1 || *wait < 0 {
 		fs.Usage()
 		return 2
 	}
@@ -69,6 +71,14 @@ func runEmbed(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	defer unlock()
+
+	// Holding the lock while waiting makes the hooks' later triggers no-ops;
+	// the loop below then picks up everything recorded meanwhile.
+	select {
+	case <-time.After(*wait):
+	case <-ctx.Done():
+		return 1
+	}
 
 	total, err := db.CountPendingEmbeddings(ctx, embed.ModelID)
 	if err != nil {
@@ -140,6 +150,44 @@ func embedAll(model *embed.Model, batch []store.PendingCommand, workers int) []s
 	close(jobs)
 	wg.Wait()
 	return out
+}
+
+// backgroundEmbedWait batches commands typed in quick succession into one
+// background embed run instead of loading the model for each.
+const backgroundEmbedWait = 2 * time.Second
+
+// startBackgroundEmbed launches `loc embed --pending` detached from the
+// terminal at low CPU priority, unless an embed already holds the lock (it
+// will pick up new commands itself). Setting LOC_BACKGROUND_EMBED=0 turns this
+// off; tests must, since os.Executable is then the test binary.
+func startBackgroundEmbed(dbPath string) error {
+	if os.Getenv("LOC_BACKGROUND_EMBED") == "0" {
+		return nil
+	}
+	unlock, err := tryLock(dbPath + ".embed.lock")
+	if errors.Is(err, errLocked) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	unlock() // a racing trigger may start a second embed; it exits at the lock
+	self, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	args := []string{self, "embed", "--pending", "--wait", backgroundEmbedWait.String()}
+	// Run through nice(1) so every thread of the new process starts at low
+	// priority: setpriority from inside a Go program only affects one thread.
+	if nice, err := exec.LookPath("nice"); err == nil {
+		args = append([]string{nice, "-n", "10"}, args...)
+	}
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true} // survive the shell closing
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	return cmd.Process.Release()
 }
 
 var errLocked = errors.New("locked")
