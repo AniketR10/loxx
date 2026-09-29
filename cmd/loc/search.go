@@ -75,7 +75,11 @@ func details(r store.Result, home string, now time.Time) string {
 	if r.Cwd != "" {
 		parts = append(parts, tildePath(r.Cwd, home))
 	}
-	parts = append(parts, relativeTime(r.LastSeen, now))
+	if r.LastRun != nil {
+		parts = append(parts, relativeTime(*r.LastRun, now))
+	} else {
+		parts = append(parts, "imported") // no run time is known (user decision, ROADMAP §3)
+	}
 	if r.ExitCode != nil {
 		parts = append(parts, fmt.Sprintf("exit %d", *r.ExitCode))
 	}
