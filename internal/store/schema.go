@@ -80,7 +80,7 @@ var SchemaVersion = len(migrations)
 // the many short-lived loc processes that open the database.
 func migrate(ctx context.Context, db *sql.DB) error {
 	if v, err := schemaVersion(ctx, db); err != nil {
-		return err
+		return fmt.Errorf("reading schema version: %w", err)
 	} else if v == SchemaVersion {
 		return nil
 	}
@@ -89,7 +89,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	// and each re-reads the version after acquiring the write lock.
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("starting migration: %w", err)
 	}
 	defer tx.Rollback()
 

@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	_ "modernc.org/sqlite" // registers the "sqlite" driver
@@ -61,6 +62,18 @@ func Open(ctx context.Context, path string) (*DB, error) {
 		return nil, err
 	}
 
+	// Serialize the first connection and migration check across processes.
+	// When many processes race to set up a new database, SQLite answers some
+	// of them SQLITE_BUSY without honoring busy_timeout while the file is
+	// switched to WAL mode (TestConcurrentWriters lost up to 4 of 20 writers
+	// this way). Once set up, later connections never race, so the lock is
+	// held only for this first step (~1 ms).
+	unlock, err := lockFile(path + ".lock")
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+
 	sqlDB, err := sql.Open("sqlite", dsn(path))
 	if err != nil {
 		return nil, err
@@ -70,6 +83,20 @@ func Open(ctx context.Context, path string) (*DB, error) {
 		return nil, fmt.Errorf("opening %s: %w", path, err)
 	}
 	return &DB{sql: sqlDB}, nil
+}
+
+// lockFile blocks until it holds an exclusive lock on path, creating the file
+// owner-only if needed. The kernel releases the lock if the process dies.
+func lockFile(path string) (unlock func(), err error) {
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("locking %s: %w", path, err)
+	}
+	return func() { f.Close() }, nil
 }
 
 // dsn builds the modernc.org/sqlite connection string. Pragmas run on every
@@ -118,23 +145,50 @@ type Execution struct {
 // Add records an execution, creating the command if it is new, and returns
 // the command's id.
 func (db *DB) Add(ctx context.Context, e Execution) (int64, error) {
+	tx, err := db.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	id, err := addTx(ctx, tx, e, time.Now())
+	if err != nil {
+		return 0, err
+	}
+	return id, tx.Commit()
+}
+
+// AddBatch records many executions in one transaction, for importing history
+// files. Either all are stored or none are.
+func (db *DB) AddBatch(ctx context.Context, es []Execution) error {
+	tx, err := db.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	now := time.Now()
+	for _, e := range es {
+		if _, err := addTx(ctx, tx, e, now); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// addTx inserts e inside tx. now stands in for commands.first_seen/last_seen
+// when e has no start time (e.g. imported history); the execution itself
+// keeps a NULL start time so no invented time is ever shown.
+func addTx(ctx context.Context, tx *sql.Tx, e Execution, now time.Time) (int64, error) {
 	text := e.Command.Text()
 	if text == "" {
 		return 0, errors.New("store: empty command")
 	}
 	seen := e.StartedAt
 	if seen.IsZero() {
-		seen = time.Now()
+		seen = now
 	}
-
-	tx, err := db.sql.BeginTx(ctx, nil)
-	if err != nil {
-		return 0, err
-	}
-	defer tx.Rollback()
 
 	var id int64
-	err = tx.QueryRowContext(ctx, `
+	err := tx.QueryRowContext(ctx, `
 		INSERT INTO commands (text, first_seen, last_seen, run_count, redacted)
 		VALUES (?, ?, ?, 1, ?)
 		ON CONFLICT (text) DO UPDATE SET
@@ -160,10 +214,25 @@ func (db *DB) Add(ctx context.Context, e Execution) (int64, error) {
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, nullIfEmpty(e.Cwd), nullIfEmpty(e.GitRoot), e.ExitCode, durationMS, startedAt,
 		nullIfEmpty(e.SessionID), nullIfEmpty(e.Hostname), string(e.Source))
-	if err != nil {
-		return 0, err
+	return id, err
+}
+
+// Meta returns the value stored under key in the meta table, and whether it
+// exists.
+func (db *DB) Meta(ctx context.Context, key string) (string, bool, error) {
+	var v string
+	err := db.sql.QueryRowContext(ctx, `SELECT value FROM meta WHERE key = ?`, key).Scan(&v)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
 	}
-	return id, tx.Commit()
+	return v, err == nil, err
+}
+
+// SetMeta stores value under key in the meta table.
+func (db *DB) SetMeta(ctx context.Context, key, value string) error {
+	_, err := db.sql.ExecContext(ctx,
+		`INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value`, key, value)
+	return err
 }
 
 func nullIfEmpty(s string) any {
