@@ -32,6 +32,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release download model-minilm-l6-v2-f16 --pattern minilm-l6-v2.f16.safetensors --dir internal/embed/model
+      - name: Install zsh (for the shell hook tests)
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends zsh
       - name: Lint
         run: make lint
       - name: Test
