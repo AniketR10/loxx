@@ -77,7 +77,7 @@ no network calls.
 | License | **MIT** |
 | v1 platform | **Linux only** (amd64 + arm64: see PROPOSED) |
 | v1 shells | **Bash + Zsh** |
-| Default keybinding | **Take over Ctrl-R**, with a one-line config opt-out |
+| How the search panel opens | **Type `loc`** (no arguments). **No keyboard shortcut** (user, 2026-09-29; replaces "take over Ctrl-R": Ctrl-R and the candidate keys are used by the user or by VS Code's terminal). The hook defines a `loc` shell function: in **zsh** the chosen command lands in the next prompt (`print -z`); in **bash**, which cannot pre-fill the next prompt, it is added to history, **one ↑ away**. Running the binary directly (no hook) prints the choice to stdout. Enter never executes (P5). |
 | Setup burden | **Install only.** No manual steps (except the package-manager caveat in Phase 6) |
 | Embedding runtime | **In-process, model compiled into the binary.** No Ollama required. |
 | Embedding model | **`sentence-transformers/all-MiniLM-L6-v2`**, pinned to HF revision `1110a243fdf4706b3f48f1d95db1a4f5529b4d41` (user decision 2026-09-27 after the bake-off; see `docs/decisions/0001-embedding-model.md`). Verified: **Apache-2.0**; BERT with **6 layers**, hidden 384, 12 heads, FFN 1536, GELU, LayerNorm eps 1e-12; uncased WordPiece, vocab 30,522 (identical to L12); BertNormalizer (clean_text, chinese chars, lowercase, strip accents) + BertPreTokenizer + WordPiece (`##`, max 100 chars/word); **max_seq_length 256**; mean pooling → L2 normalize → 384-dim. Weights 90.9 MB f32 (~45 MB f16). model.safetensors sha256 `53aa5117…d9db`. **Fallback** if pure-Go speed fails the gate: potion-base-8M. |
@@ -93,6 +93,8 @@ no network calls.
 | Minimum shell versions | **bash ≥ 4.4, zsh ≥ 5.1** (user, 2026-09-28; was O4) |
 | Commands inside `ssh` sessions | **Out of scope for v1**: loc records only on the machine where it is installed. No syncing or forwarding (user, 2026-09-28; was O5) |
 | Prompt-overhead target | **≤ 10 ms added per command** (user, 2026-09-28, after measuring bash +3.9 ms and zsh +1.3 ms) |
+| TUI library | **Bubbletea v2.0.9 alone** (no Bubbles, no Lipgloss), user 2026-09-29 after a measured spike: +2.1 MB binary, 24.8 ms first paint, 16 MIT/BSD modules (`docs/decisions/0002-tui-library.md`). Pinned below v2.0.10, which needs Go 1.26. |
+| Panel behaviour (user, 2026-09-29) | **Empty query → most recent commands.** **Tab cycles filters** (all → this dir → this session → failed). **"Failed" = the last run failed.** **"This dir" = the same directory, or anywhere in the same git repo when in one.** Enter fills the prompt and never executes (P5). |
 | Language policy | **Dev-only tooling may use any language** (Python for model conversion, golden generation, bake-offs). **Code that ships to users stays Go**, because of P1 (fast startup on every prompt), P3/P4 (single static binary, zero setup) and the install-only promise, not out of language preference. (User said the focus is performance and correctness, not language, 2026-09-27) |
 | Inference implementation | **Hand-written pure Go** (user decision, 2026-09-27; hugot rejected). If a transformer wins: BERT forward pass + WordPiece. If model2vec wins: WordPiece + lookup + mean pooling. Weights loaded from `go:embed`. Only extra dependency: `golang.org/x/text` v0.41.0 (BSD-3, needed for Unicode NFD in the tokenizer; v0.42+ requires Go 1.26). |
 | Weight precision | **f16** in the binary, converted to f32 at load (user decision, 2026-09-27; carried over from L12 to L6) |
@@ -115,7 +117,6 @@ no network calls.
 ### PROPOSED (confirm before the phase that uses it)
 | Topic | Proposal | Needed by |
 |---|---|---|
-| TUI | Bubbletea + Bubbles + Lipgloss | Phase 5 |
 | Config format / location | TOML at `$XDG_CONFIG_HOME/loc/config.toml` | Phase 6 |
 | Linux architectures | amd64 + arm64 | Phase 7 |
 | Release tooling | GoReleaser + GitHub Actions | Phase 7 |
@@ -126,7 +127,7 @@ no network calls.
 |---|---|---|
 | O1 | The name `loc` is also used by an existing lines-of-code counter (`cgag/loc`). Keep `loc` anyway? | Phase 7 (packaging names) |
 | O3 | Install URL / hosting for `install.sh` (GitHub raw? GitHub Pages? a custom domain?) | Phase 6 |
-| O6 | Go 1.26 is out (1.26.8 seen 2026-09-26), but 1.25.12 is installed locally. Move the project to Go 1.26? | Any time (low priority) |
+| O6 | Go 1.26 is out (1.26.8 seen 2026-09-26), but 1.25.12 is installed locally. Move the project to Go 1.26? **Four dependencies are now pinned below latest because of this** (staticcheck 2026.1, x/text v0.41.0, x/term v0.45.0, bubbletea v2.0.9). | Any time (rising priority) |
 
 ---
 
@@ -356,26 +357,29 @@ zsh 5.9 turned out to be installed already.
 
 ---
 
-### Phase 5: TUI + Ctrl-R
-**Goal:** Ctrl-R opens a fast inline search, and Enter fills the prompt.
+### Phase 5: Search panel (`loc`)
+**Goal:** typing `loc` opens a fast inline search, and Enter puts the chosen command in the prompt (zsh) or one ↑ away (bash), never executing it.
 
 **Tasks**
-- [ ] Bubbletea TUI rendered on `/dev/tty`. The selected command goes to **stdout** only.
-- [ ] Inline mode (about 15 lines under the prompt, not fullscreen). Handles terminal resize.
-- [ ] Input box → keyword results as you type → semantic results merged after a debounce
-- [ ] Result rows: command, dir, relative time, ✓/✗ exit, run count; secrets shown as `<REDACTED:…>`
-- [ ] Filters: all / this dir / this session / failed only (key to cycle them)
-- [ ] Keys: ↑/↓, Enter (accept), Tab (accept for editing; confirm the behavior with the user), Esc/Ctrl-C (cancel, leaving the buffer unchanged)
-- [ ] Pre-fill the query with the current prompt buffer contents
-- [ ] zsh widget: `zle` widget bound to `^R`, sets `BUFFER` and `CURSOR`
-- [ ] bash widget: `bind -x` on `\C-r`, sets `READLINE_LINE` and `READLINE_POINT`
-- [ ] Config opt-out: keep native Ctrl-R, and optionally bind a different key
-- [ ] Never use `TIOCSTI` (disabled by default since Linux 6.2)
+- [x] Bubbletea v2.0.9 panel (`internal/tui`), rendered on `/dev/tty`; the chosen command goes to **stdout** only (`loc panel`, and plain `loc`). Exit 1 with no output on cancel.
+- [x] Inline (not fullscreen), up to 15 lines, never taller than the terminal minus the prompt line; resize via `WindowSizeMsg`; the panel erases itself on exit.
+- [x] Keyword results on every keystroke; meaning-based results 150 ms after typing pauses; results from older keystrokes are dropped (sequence number); a footer says "matching by meaning…" meanwhile.
+- [x] Rows: command (newlines shown as ↵), then `~/dir · 3 weeks ago · 4× ✓/✗` (or "imported"), cut to the terminal width, wide characters handled (`x/ansi`); secrets are shown as stored (`<REDACTED:…>`).
+- [x] Filters: all / this dir (or same git repo) / this session / failed (last run failed); **Tab / Shift-Tab cycle them**. "This session" is skipped when the session is unknown (it would silently match everything: a bug caught by the tests). Filters apply inside the SQL (keyword, recent) and to the vector scan (semantic).
+- [x] Keys: ↑/↓ (Ctrl-P/N), Enter, Tab/Shift-Tab, Esc/Ctrl-C/Ctrl-G cancel, Backspace, Ctrl-U, Ctrl-W.
+- [x] Empty query shows the most recent commands.
+- [x] `loc` shell function in both hooks: no arguments → panel; zsh `print -z` pre-fills the next prompt; bash `history -s` puts it one ↑ away and prints a dim "↑ to use: …" hint; with arguments → the binary.
+- [x] The `loc` binary with no arguments opens the panel and prints the choice (works without the hook).
+- [x] Never uses `TIOCSTI`.
+- [x] Tests (real binary in a pseudo-terminal, 80×24): `TestPanel` (keyword, recent-first, arrows, Tab→failed, meaning with no shared words, Esc, Ctrl-C, empty history) and `TestLocFunction` (real bash and zsh: cancel leaves nothing behind; choose → Enter in zsh / ↑ Enter in bash actually runs it).
+- [x] Result formatting moved to `internal/format` (shared by `loc search` and the panel).
+
+**Measurements (2026-09-29, AC power)**: time from launching `loc panel` to the first frame: **~30 ms median at any history size** (your 1,006 commands: 29.7 ms; 10k: 29.7 ms; 100k: 28.8 ms; max 40 ms; 20/20 runs), because the model and vectors load in the background after the first frame. Binary: 52.4 → **54.1 MB** (+1.6 MB).
 
 **Exit criteria**
-- [ ] Time from keypress to TUI visible is measured (target to be agreed)
-- [ ] Works in: GNOME Terminal/Ptyxis (Fedora default: verify which), plus at least one more terminal (**ask the user which ones they use**), and inside tmux
-- [ ] Cancel leaves the prompt exactly as it was
+- [x] Time to the panel being visible: **~30 ms median, max 40 ms** (AC). **Target (user, 2026-09-29): ≤ 100 ms: met.**
+- [x] Works in the terminal the user actually uses: **VS Code's integrated terminal** (user, 2026-09-29). Checked by hand by the user, who reported "everything is working fine" (2026-09-29). Which scenarios they covered (e.g. inside tmux) was not itemized.
+- [x] Cancel leaves the prompt and history exactly as they were: `TestLocFunction` in real bash and zsh (a command typed right after a cancel runs cleanly), plus the user's manual check. In bash the `loc` function returns before `history -s` when cancelled.
 
 **Out of scope:** installer.
 
@@ -447,7 +451,7 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 
 ## 6. Progress log
 
-**Current phase: Phase 5 (not started)**. Phase 4 is complete: the user commits it first. Confirm §3 PROPOSED "TUI: Bubbletea + Bubbles + Lipgloss" before starting.
+**Current phase: Phase 6 (not started)**. Phase 5 is complete: the user commits it first. Before starting, confirm §3 PROPOSED "Config format / location" and answer O3 (install URL / hosting).
 
 | Date | Phase | What happened / evidence |
 |---|---|---|
@@ -457,6 +461,7 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 | 2026-09-27 | Phase 2 ✅ | Bake-off (L6 chosen; `docs/decisions/0001-embedding-model.md`), exact pure-Go tokenizer + BERT (cosine 1.0000000 f32 / 0.9999992 f16), f16 weights via `make model` + GitHub Release, schema v2 `embeddings`, `loc embed --pending`, Go eval harness reproducing the bake-off (0.55/0.80/0.65). Speed accepted by the user. Not committed yet: the user commits. |
 | 2026-09-27 | Phase 3 ✅ | Hybrid search (`internal/search`): AND keywords + semantic, weighted RRF (kw 0.5, k=60), tuned on 40 questions + 25 fragments (0.55/0.80/0.65 and 1.00/1.00/1.00). run_count boost rejected by measurement; recency/cwd boosts deferred to after Phase 4; filters moved to Phase 5. Targets revised with the user and met (keyword 1–12 ms at 100k; semantic ~0.19 s at 10k). Schema v3 drops `embedded_at`; f16 lookup table (load 105→70 ms). Not committed yet: the user commits. |
 | 2026-09-29 | Phase 4 ✅ | Capture: `loc record`, `loc import`, `loc init bash|zsh` (bash-preexec 0.7.0 vendored; ignorespace preserved; exit hook for commands interrupted by closing the terminal), background embed trigger. Tested in real bash/zsh in a pty (edge cases, 100-command rapid fire, hangup). Overhead bash +3.9 ms / zsh +1.3 ms (target ≤ 10 ms). Real use: 1 day, 41 commands, 0 duplicates; fixed the tmux/hangup loss, the model-tag version string, and a new-database SQLITE_BUSY race. Not committed yet: the user commits. |
+| 2026-09-29 | Phase 5 ✅ | Search panel: typing `loc` opens an inline Bubbletea v2.0.9 panel (spike: +1.6 MB, ~30 ms to first frame; target ≤ 100 ms); keyword results per keystroke, meaning-based after a 150 ms pause; Tab filters (all/dir-or-repo/session/failed); Enter → zsh pre-filled prompt / bash one ↑ away; never executes. No keyboard shortcut (user: Ctrl-R and candidates are taken by them or by VS Code). Tested in a pty and in real bash/zsh; the user confirmed it works in the VS Code terminal. Not committed yet: the user commits. |
 
 ---
 
@@ -464,6 +469,7 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 _Ideas that come up mid-phase go here, not into the code._
 
 - **Recency and cwd/git-root boosts** (deferred from Phase 3, moved here from Phase 4 by the user on 2026-09-28): after ~2 weeks of real captured history, build an eval with context (query + cwd + time) and measure the boosts. Ship them only if they beat `DefaultParams`.
+- **Minimum similarity for meaning-based results** (found 2026-09-29): nearest-neighbour search always returns *something*, even for gibberish ("zzzqqq" matched a tar command). A cutoff would hide far-off matches, but it changes ranking, so tune it on the eval sets (and a new "should match nothing" set) before shipping.
 - Memory at scale: `loc search` peaks at 537 MB with 100k commands (154 MB f32 vectors + SQLite blob copies while loading; `EmbeddingMatrix` allocates ~470 MB at 100k). Options to measure: stream-decode without per-row copies, or store vectors as f16/int8 (2–4× smaller).
 - Memory: `loc embed` peaks at ~230 MB RSS (f32 weights + the embedded f16 copy + GC headroom). Before the TUI (Phase 5) holds the model for a whole session, try `debug.SetGCPercent`/`SetMemoryLimit` or dropping the f16 bytes after conversion, measured A/B.
 - Scrubber gap (found 2026-09-27 on real history): Langfuse secret keys `sk-lf-<uuid>` are only caught next to a telling name (`*_SECRET_KEY=`). Passed bare, the hex+dash value is skipped by the entropy layer. Add a known-token rule for `sk-lf-` (and ask whether `pk-lf-` public keys should be redacted too).
