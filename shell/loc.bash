@@ -88,5 +88,20 @@ if [[ -z ${_loc_exit_installed:-} ]]; then
   trap '_loc_exit; eval "$_loc_prev_exit_trap"' EXIT
 fi
 
+# Typing `loc` with no arguments opens the search panel. bash cannot pre-fill
+# the next prompt, so the chosen command goes into history: one Up arrow away,
+# ready to edit. It is never run for you. With arguments, `loc` is the loc
+# binary (`loc search …`, `loc import`, …).
+loc() {
+  if (($#)); then
+    "$_loc_bin" "$@"
+    return
+  fi
+  local chosen
+  chosen=$("$_loc_bin" panel --cwd "$PWD" --session "$_loc_session") || return 0
+  builtin history -s -- "$chosen"
+  printf '\033[2m↑ to use: %s\033[0m\n' "$chosen" >&2
+}
+
 [[ " ${preexec_functions[*]-} " == *" _loc_preexec "* ]] || preexec_functions+=(_loc_preexec)
 [[ " ${precmd_functions[*]-} " == *" _loc_precmd "* ]] || precmd_functions+=(_loc_precmd)

@@ -35,6 +35,19 @@ _loc_exit() {
   _loc_cmd=""
 }
 
+# Typing `loc` with no arguments opens the search panel; the chosen command
+# is placed in the next prompt, ready to edit. It is never run for you.
+# With arguments, `loc` is the loc binary (`loc search …`, `loc import`, …).
+loc() {
+  if (( $# )); then
+    "$_loc_bin" "$@"
+    return
+  fi
+  local chosen
+  chosen=$("$_loc_bin" panel --cwd "$PWD" --session "$_loc_session") || return 0
+  print -z -- "$chosen"
+}
+
 autoload -Uz add-zsh-hook
 add-zsh-hook preexec _loc_preexec
 add-zsh-hook zshexit _loc_exit

@@ -238,7 +238,17 @@ func startShell(t *testing.T, shell string, args []string) *session {
 		t.Skipf("%s not installed", shell)
 	}
 	dir := t.TempDir()
-	s := &session{t: t, dir: dir, dbPath: filepath.Join(dir, "history.db"), copied: make(chan struct{})}
+	s := startPTY(t, dir, filepath.Join(dir, "history.db"), nil, shell, args...)
+	time.Sleep(500 * time.Millisecond) // let the shell start
+	return s
+}
+
+// startPTY starts name in a new 80x24 pseudo-terminal, as its controlling
+// terminal, with loc pointed at dbPath. Its stdout goes to stdout when given,
+// otherwise to the terminal.
+func startPTY(t *testing.T, dir, dbPath string, stdout io.Writer, name string, args ...string) *session {
+	t.Helper()
+	s := &session{t: t, dir: dir, dbPath: dbPath, copied: make(chan struct{})}
 
 	master, err := os.OpenFile("/dev/ptmx", os.O_RDWR, 0)
 	if err != nil {
@@ -248,6 +258,11 @@ func startShell(t *testing.T, shell string, args []string) *session {
 	var unlock int32
 	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, master.Fd(), syscall.TIOCSPTLCK, uintptr(unsafe.Pointer(&unlock))); errno != 0 {
 		t.Fatalf("unlocking pty: %v", errno)
+	}
+	// A real terminal has a size; with 0x0 a TUI has nowhere to draw.
+	size := [4]uint16{24, 80, 0, 0} // rows, cols, xpixel, ypixel
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, master.Fd(), syscall.TIOCSWINSZ, uintptr(unsafe.Pointer(&size))); errno != 0 {
+		t.Fatalf("sizing pty: %v", errno)
 	}
 	var n uint32
 	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, master.Fd(), syscall.TIOCGPTN, uintptr(unsafe.Pointer(&n))); errno != 0 {
@@ -260,32 +275,34 @@ func startShell(t *testing.T, shell string, args []string) *session {
 
 	var ctx context.Context
 	ctx, s.cancel = context.WithTimeout(context.Background(), 60*time.Second)
-	s.cmd = exec.CommandContext(ctx, shell, args...)
+	s.cmd = exec.CommandContext(ctx, name, args...)
 	s.cmd.Dir = dir
 	s.cmd.Env = append(os.Environ(),
-		"HOME="+dir,
+		"HOME="+dir, // never touch the real home directory or history
 		"HISTFILE="+filepath.Join(dir, "shell-history"),
 		"HISTCONTROL=ignorespace",
-		"LOC_DB_PATH="+s.dbPath,
+		"LOC_DB_PATH="+dbPath,
 		"LOC_BACKGROUND_EMBED=0",
-		"TERM=dumb",
+		"TERM=xterm-256color",
 	)
 	s.cmd.Stdin, s.cmd.Stdout, s.cmd.Stderr = tty, tty, tty
+	if stdout != nil {
+		s.cmd.Stdout = stdout
+	}
 	s.cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true, Ctty: 0}
 	err = s.cmd.Start()
-	tty.Close() // the shell has its own copy
+	tty.Close() // the child has its own copy
 	if err != nil {
 		t.Fatal(err)
 	}
 	go func() {
-		io.Copy(&s.out, master) // ends with EIO once the shell exits
+		io.Copy(&s.out, master) // ends with EIO once the process exits
 		close(s.copied)
 	}()
 	t.Cleanup(func() {
 		s.cancel()
 		master.Close()
 	})
-	time.Sleep(500 * time.Millisecond) // let the shell start
 	return s
 }
 
