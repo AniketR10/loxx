@@ -23,6 +23,7 @@ func commands() []command {
 		{name: "embed", summary: "embed commands for semantic search", run: runEmbed},
 		{name: "import", summary: "import existing bash/zsh history", run: runImport},
 		{name: "init", summary: "print the shell hook that records commands", run: runInit},
+		{name: "panel", summary: "open the search panel (what plain `loc` does)", run: runPanel},
 		{name: "record", summary: "record a finished command (used by the shell hook)", run: runRecord},
 		{name: "search", summary: "search recorded commands by meaning and keyword", run: runSearch},
 		{name: "version", summary: "print the loc version", run: runVersion},
@@ -36,8 +37,7 @@ func main() {
 // run dispatches to a subcommand and returns the process exit code.
 func run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		usage(stderr)
-		return 2
+		return runPanel(nil, stdout, stderr)
 	}
 	switch args[0] {
 	case "help", "-h", "-help", "--help":
@@ -55,7 +55,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "Usage: loc <command> [arguments]")
+	fmt.Fprintln(w, "Usage: loc                       open the search panel")
+	fmt.Fprintln(w, "       loc <command> [arguments]")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Commands:")
 	for _, c := range commands() {
