@@ -20,7 +20,7 @@ import (
 )
 
 // shells are the interactive shells the hooks support, started without any
-// rc files so only the loc hook is loaded.
+// rc files so only the loxx hook is loaded.
 var shells = []struct {
 	name string
 	args []string
@@ -33,7 +33,7 @@ var shells = []struct {
 const ctrlC = "\x03"
 
 // TestShellHooks runs real interactive bash and zsh sessions with the hook
-// from `loc init` loaded, inside a pseudo-terminal so they behave as if a
+// from `loxx init` loaded, inside a pseudo-terminal so they behave as if a
 // person were typing, then checks what was recorded.
 func TestShellHooks(t *testing.T) {
 	bin := buildLoc(t)
@@ -160,10 +160,10 @@ func TestShellHooksRapidFire(t *testing.T) {
 
 // TestHookOverhead measures how much the hook slows the prompt: the time per
 // command in a burst of typed-ahead commands, with and without the hook, and
-// what one background `loc record` costs. Opt-in: LOC_BENCH_HOOKS=1.
+// what one background `loxx record` costs. Opt-in: LOXX_BENCH_HOOKS=1.
 func TestHookOverhead(t *testing.T) {
-	if os.Getenv("LOC_BENCH_HOOKS") == "" {
-		t.Skip("set LOC_BENCH_HOOKS=1 to measure")
+	if os.Getenv("LOXX_BENCH_HOOKS") == "" {
+		t.Skip("set LOXX_BENCH_HOOKS=1 to measure")
 	}
 	bin := buildLoc(t)
 	const n, rounds = 200, 5
@@ -189,31 +189,31 @@ func TestHookOverhead(t *testing.T) {
 		})
 	}
 
-	// The background cost: one `loc record`, start to exit.
-	env := append(os.Environ(), "LOC_DB_PATH="+filepath.Join(t.TempDir(), "history.db"), "LOC_BACKGROUND_EMBED=0")
+	// The background cost: one `loxx record`, start to exit.
+	env := append(os.Environ(), "LOXX_DB_PATH="+filepath.Join(t.TempDir(), "history.db"), "LOXX_BACKGROUND_EMBED=0")
 	var runs []time.Duration
 	for i := range 30 {
 		cmd := exec.Command(bin, "record", "--exit", "0", "--", fmt.Sprintf("echo record-cost-%d", i))
 		cmd.Env = env
 		start := time.Now()
 		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("loc record: %v\n%s", err, out)
+			t.Fatalf("loxx record: %v\n%s", err, out)
 		}
 		runs = append(runs, time.Since(start))
 	}
-	t.Logf("one background `loc record`: median %v (30 runs)", median(runs).Round(time.Microsecond))
+	t.Logf("one background `loxx record`: median %v (30 runs)", median(runs).Round(time.Microsecond))
 }
 
 func buildLoc(t *testing.T) string {
 	t.Helper()
 	if testing.Short() {
-		t.Skip("builds loc and starts real shells")
+		t.Skip("builds loxx and starts real shells")
 	}
-	bin := filepath.Join(t.TempDir(), "loc")
+	bin := filepath.Join(t.TempDir(), "loxx")
 	build := exec.Command("go", "build", "-o", bin, ".")
 	build.Env = append(os.Environ(), "CGO_ENABLED=0")
 	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("building loc: %v\n%s", err, out)
+		t.Fatalf("building loxx: %v\n%s", err, out)
 	}
 	return bin
 }
@@ -244,7 +244,7 @@ func startShell(t *testing.T, shell string, args []string) *session {
 }
 
 // startPTY starts name in a new 80x24 pseudo-terminal, as its controlling
-// terminal, with loc pointed at dbPath. Its stdout goes to stdout when given,
+// terminal, with loxx pointed at dbPath. Its stdout goes to stdout when given,
 // otherwise to the terminal.
 func startPTY(t *testing.T, dir, dbPath string, stdout io.Writer, name string, args ...string) *session {
 	t.Helper()
@@ -281,8 +281,8 @@ func startPTY(t *testing.T, dir, dbPath string, stdout io.Writer, name string, a
 		"HOME="+dir, // never touch the real home directory or history
 		"HISTFILE="+filepath.Join(dir, "shell-history"),
 		"HISTCONTROL=ignorespace",
-		"LOC_DB_PATH="+dbPath,
-		"LOC_BACKGROUND_EMBED=0",
+		"LOXX_DB_PATH="+dbPath,
+		"LOXX_BACKGROUND_EMBED=0",
 		"TERM=xterm-256color",
 	)
 	s.cmd.Stdin, s.cmd.Stdout, s.cmd.Stderr = tty, tty, tty
@@ -349,7 +349,7 @@ func (s *session) wait() {
 	<-s.copied
 }
 
-// recordedWhen waits (loc record runs in the background) until done reports
+// recordedWhen waits (loxx record runs in the background) until done reports
 // true for the recorded executions, or 20 seconds pass, and returns them.
 func (s *session) recordedWhen(done func([]execution) bool) []execution {
 	s.t.Helper()

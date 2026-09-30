@@ -1,4 +1,4 @@
-# loc
+# loxx
 
 Local-first, open-source (MIT) shell-history tool with hybrid keyword + semantic search. Go, Linux, bash + zsh.
 

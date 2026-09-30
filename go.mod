@@ -1,4 +1,4 @@
-module github.com/AniketR10/loc
+module github.com/AniketR10/loxx
 
 go 1.25.0
 

@@ -41,4 +41,4 @@ jobs:
       - name: Build and verify static binary
         run: make check-static
       - name: Smoke test
-        run: ./bin/loc version
+        run: ./bin/loxx version

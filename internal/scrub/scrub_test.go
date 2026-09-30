@@ -5,7 +5,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/AniketR10/loc/internal/secretcorpus"
+	"github.com/AniketR10/loxx/internal/secretcorpus"
 )
 
 func TestPositiveCorpus(t *testing.T) {

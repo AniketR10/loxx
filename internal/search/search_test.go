@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AniketR10/loc/internal/embed"
-	"github.com/AniketR10/loc/internal/scrub"
-	"github.com/AniketR10/loc/internal/store"
+	"github.com/AniketR10/loxx/internal/embed"
+	"github.com/AniketR10/loxx/internal/scrub"
+	"github.com/AniketR10/loxx/internal/store"
 )
 
 func TestFuse(t *testing.T) {

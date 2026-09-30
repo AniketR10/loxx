@@ -1,11 +1,11 @@
 # Embedded model files
 
-These files are compiled into the `loc` binary by `internal/embed/assets.go`.
+These files are compiled into the `loxx` binary by `internal/embed/assets.go`.
 
 The weights file is **not stored in git**. Run `make model` (build, test and
 lint do it automatically): it downloads the file from the
 `model-minilm-l6-v2-f16` GitHub Release and refuses it unless the SHA-256
-matches. Because of this, `go install github.com/AniketR10/loc/cmd/loc@latest`
+matches. Because of this, `go install github.com/AniketR10/loxx/cmd/loxx@latest`
 does not work; install a release binary instead, or clone and run `make build`.
 
 | File | What it is |
@@ -27,7 +27,7 @@ Produced by `tools/model/convert.py`:
 
 - Every weight tensor was cast from float32 to float16 (max absolute rounding
   error 0.00098).
-- Two tensors that `loc` does not use were removed: `embeddings.position_ids`
+- Two tensors that `loxx` does not use were removed: `embeddings.position_ids`
   (an index buffer) and `pooler.*` (sentence-transformers mean-pools instead).
 
 Resulting sha256:
@@ -38,4 +38,4 @@ Resulting sha256:
 ## License
 
 The model files are licensed under the Apache License 2.0 (see `LICENSE`).
-The rest of `loc` is MIT licensed.
+The rest of `loxx` is MIT licensed.

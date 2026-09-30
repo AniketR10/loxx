@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// TestLocFunction types `loc` in real bash and zsh sessions, picks a command
+// TestLocFunction types `loxx` in real bash and zsh sessions, picks a command
 // in the panel, then runs what the shell prepared: in zsh the next prompt is
 // pre-filled (Enter runs it); in bash it is one Up arrow away. The chosen
 // command prints "picked-42" only when it actually runs.
@@ -27,11 +27,11 @@ func TestLocFunction(t *testing.T) {
 			}
 			s.typeLines(
 				`eval "$('`+bin+`' init `+sh.name+`)"`,
-				`loc add 'echo picked-$((40+2))'`,
+				`loxx add 'echo picked-$((40+2))'`,
 				// A cancelled panel must leave nothing behind.
-				"loc", ctrlC,
+				"loxx", ctrlC,
 				`echo after-cancel-$((1+1))`,
-				"loc",
+				"loxx",
 			)
 			for _, k := range []string{"picked", "\r", use} {
 				if _, err := s.master.WriteString(k); err != nil {
@@ -58,19 +58,19 @@ func TestPanel(t *testing.T) {
 	bin := buildLoc(t)
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "history.db")
-	loc := func(args ...string) {
+	loxx := func(args ...string) {
 		t.Helper()
 		cmd := exec.Command(bin, args...)
-		cmd.Env = append(os.Environ(), "LOC_DB_PATH="+dbPath, "LOC_BACKGROUND_EMBED=0")
+		cmd.Env = append(os.Environ(), "LOXX_DB_PATH="+dbPath, "LOXX_BACKGROUND_EMBED=0")
 		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("loc %v: %v\n%s", args, err, out)
+			t.Fatalf("loxx %v: %v\n%s", args, err, out)
 		}
 	}
-	loc("add", "--exit", "0", "sudo systemctl restart nginx")
-	loc("add", "--exit", "2", "make deploy")
-	loc("add", "--exit", "0", "tar -czvf backup.tar.gz ~/Documents")
-	loc("add", "--exit", "0", "git status") // the most recent
-	loc("embed", "--pending")
+	loxx("add", "--exit", "0", "sudo systemctl restart nginx")
+	loxx("add", "--exit", "2", "make deploy")
+	loxx("add", "--exit", "0", "tar -czvf backup.tar.gz ~/Documents")
+	loxx("add", "--exit", "0", "git status") // the most recent
+	loxx("embed", "--pending")
 
 	tests := []struct {
 		name string

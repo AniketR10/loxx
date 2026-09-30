@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/AniketR10/loc/internal/embed"
-	"github.com/AniketR10/loc/internal/store"
+	"github.com/AniketR10/loxx/internal/embed"
+	"github.com/AniketR10/loxx/internal/store"
 )
 
 // embedBatch is how many commands are embedded and saved per transaction.
@@ -26,7 +26,7 @@ func runEmbed(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("embed", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, "Usage: loc embed --pending [--workers N] [--wait DURATION]")
+		fmt.Fprintln(stderr, "Usage: loxx embed --pending [--workers N] [--wait DURATION]")
 		fmt.Fprintln(stderr)
 		fmt.Fprintln(stderr, "Embeds every command that has no vector from the built-in model yet.")
 		fmt.Fprintln(stderr, "Only one embed runs at a time; a second one exits immediately.")
@@ -49,25 +49,25 @@ func runEmbed(args []string, stdout, stderr io.Writer) int {
 
 	path, err := store.DefaultPath()
 	if err != nil {
-		fmt.Fprintln(stderr, "loc embed:", err)
+		fmt.Fprintln(stderr, "loxx embed:", err)
 		return 1
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	db, err := store.Open(ctx, path)
 	if err != nil {
-		fmt.Fprintln(stderr, "loc embed:", err)
+		fmt.Fprintln(stderr, "loxx embed:", err)
 		return 1
 	}
 	defer db.Close()
 
 	unlock, err := tryLock(path + ".embed.lock")
 	if errors.Is(err, errLocked) {
-		fmt.Fprintln(stderr, "loc embed: another embed is already running")
+		fmt.Fprintln(stderr, "loxx embed: another embed is already running")
 		return 0
 	}
 	if err != nil {
-		fmt.Fprintln(stderr, "loc embed:", err)
+		fmt.Fprintln(stderr, "loxx embed:", err)
 		return 1
 	}
 	defer unlock()
@@ -82,7 +82,7 @@ func runEmbed(args []string, stdout, stderr io.Writer) int {
 
 	total, err := db.CountPendingEmbeddings(ctx, embed.ModelID)
 	if err != nil {
-		fmt.Fprintln(stderr, "loc embed:", err)
+		fmt.Fprintln(stderr, "loxx embed:", err)
 		return 1
 	}
 	if total == 0 {
@@ -90,7 +90,7 @@ func runEmbed(args []string, stdout, stderr io.Writer) int {
 	}
 	model, err := embed.Default()
 	if err != nil {
-		fmt.Fprintln(stderr, "loc embed:", err)
+		fmt.Fprintln(stderr, "loxx embed:", err)
 		return 1
 	}
 
@@ -121,10 +121,10 @@ func runEmbed(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr)
 	}
 	if err := ctx.Err(); err != nil {
-		fmt.Fprintf(stderr, "loc embed: interrupted after %d command(s); run it again to continue\n", done)
+		fmt.Fprintf(stderr, "loxx embed: interrupted after %d command(s); run it again to continue\n", done)
 		return 1
 	}
-	fmt.Fprintf(stderr, "loc: embedded %d command(s) in %.1fs\n", done, time.Since(start).Seconds())
+	fmt.Fprintf(stderr, "loxx: embedded %d command(s) in %.1fs\n", done, time.Since(start).Seconds())
 	return 0
 }
 
@@ -156,12 +156,12 @@ func embedAll(model *embed.Model, batch []store.PendingCommand, workers int) []s
 // background embed run instead of loading the model for each.
 const backgroundEmbedWait = 2 * time.Second
 
-// startBackgroundEmbed launches `loc embed --pending` detached from the
+// startBackgroundEmbed launches `loxx embed --pending` detached from the
 // terminal at low CPU priority, unless an embed already holds the lock (it
-// will pick up new commands itself). Setting LOC_BACKGROUND_EMBED=0 turns this
+// will pick up new commands itself). Setting LOXX_BACKGROUND_EMBED=0 turns this
 // off; tests must, since os.Executable is then the test binary.
 func startBackgroundEmbed(dbPath string) error {
-	if os.Getenv("LOC_BACKGROUND_EMBED") == "0" {
+	if os.Getenv("LOXX_BACKGROUND_EMBED") == "0" {
 		return nil
 	}
 	unlock, err := tryLock(dbPath + ".embed.lock")

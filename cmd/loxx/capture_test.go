@@ -11,8 +11,8 @@ import (
 
 func TestMain(m *testing.M) {
 	// In tests os.Executable is the test binary: never let record/import
-	// launch it as a background "loc embed".
-	os.Setenv("LOC_BACKGROUND_EMBED", "0")
+	// launch it as a background "loxx embed".
+	os.Setenv("LOXX_BACKGROUND_EMBED", "0")
 	os.Exit(m.Run())
 }
 
@@ -52,7 +52,7 @@ func executions(t *testing.T, dbPath string) []execution {
 func TestRecord(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "history.db")
-	t.Setenv("LOC_DB_PATH", dbPath)
+	t.Setenv("LOXX_DB_PATH", dbPath)
 	repo := filepath.Join(dir, "repo")
 	sub := filepath.Join(repo, "src", "pkg")
 	if err := os.MkdirAll(filepath.Join(repo, ".git"), 0o755); err != nil {
@@ -92,7 +92,7 @@ func TestRecord(t *testing.T) {
 }
 
 func TestRecordUsage(t *testing.T) {
-	t.Setenv("LOC_DB_PATH", filepath.Join(t.TempDir(), "history.db"))
+	t.Setenv("LOXX_DB_PATH", filepath.Join(t.TempDir(), "history.db"))
 	for _, args := range [][]string{
 		{"record"},
 		{"record", "--", "a", "b"},
@@ -101,7 +101,7 @@ func TestRecordUsage(t *testing.T) {
 		{"record", "--start", "-5", "--", "ls"},
 	} {
 		if code := run(args, &strings.Builder{}, &strings.Builder{}); code != 2 {
-			t.Errorf("loc %q: exit %d, want 2", args, code)
+			t.Errorf("loxx %q: exit %d, want 2", args, code)
 		}
 	}
 }
@@ -144,7 +144,7 @@ func TestGitRoot(t *testing.T) {
 func TestImport(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "history.db")
-	t.Setenv("LOC_DB_PATH", dbPath)
+	t.Setenv("LOXX_DB_PATH", dbPath)
 	bashHist := filepath.Join(dir, "bash_history")
 	zshHist := filepath.Join(dir, "zsh_history")
 	if err := os.WriteFile(bashHist, []byte("git status\nexport API_TOKEN=abc123def456ghi\ngit status\n"), 0o600); err != nil {
@@ -202,10 +202,10 @@ func TestInit(t *testing.T) {
 		t.Fatalf("init zsh: exit %d: %s", code, errOut.String())
 	}
 	self, _ := os.Executable()
-	if !strings.Contains(out.String(), "_loc_bin='"+self+"'") || !strings.Contains(out.String(), "add-zsh-hook preexec _loc_preexec") {
+	if !strings.Contains(out.String(), "_loxx_bin='"+self+"'") || !strings.Contains(out.String(), "add-zsh-hook preexec _loxx_preexec") {
 		t.Errorf("zsh script missing the binary path or hooks:\n%s", out.String())
 	}
-	if strings.Contains(out.String(), "__LOC_BIN__") {
+	if strings.Contains(out.String(), "__LOXX_BIN__") {
 		t.Error("placeholder was not replaced")
 	}
 	if code := run([]string{"init", "bash"}, &strings.Builder{}, &strings.Builder{}); code != 0 {
@@ -213,7 +213,7 @@ func TestInit(t *testing.T) {
 	}
 	for _, args := range [][]string{{"init"}, {"init", "fish"}} {
 		if code := run(args, &strings.Builder{}, &strings.Builder{}); code != 2 {
-			t.Errorf("loc %q: exit %d, want 2", args, code)
+			t.Errorf("loxx %q: exit %d, want 2", args, code)
 		}
 	}
 }

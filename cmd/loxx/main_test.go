@@ -15,9 +15,9 @@ func TestRun(t *testing.T) {
 		wantStdout string
 		wantStderr string
 	}{
-		{name: "help", args: []string{"help"}, wantCode: 0, wantStdout: "Usage: loc"},
-		{name: "--help", args: []string{"--help"}, wantCode: 0, wantStdout: "Usage: loc"},
-		{name: "version", args: []string{"version"}, wantCode: 0, wantStdout: "loc dev"},
+		{name: "help", args: []string{"help"}, wantCode: 0, wantStdout: "Usage: loxx"},
+		{name: "--help", args: []string{"--help"}, wantCode: 0, wantStdout: "Usage: loxx"},
+		{name: "version", args: []string{"version"}, wantCode: 0, wantStdout: "loxx dev"},
 		{name: "version extra arg", args: []string{"version", "x"}, wantCode: 2, wantStderr: "takes no arguments"},
 		{name: "unknown", args: []string{"nope"}, wantCode: 2, wantStderr: `unknown command "nope"`},
 	}
@@ -42,13 +42,13 @@ func runOK(t *testing.T, args ...string) (stdout, stderr string) {
 	t.Helper()
 	var out, errOut bytes.Buffer
 	if code := run(args, &out, &errOut); code != 0 {
-		t.Fatalf("loc %s: exit %d\nstderr: %s", strings.Join(args, " "), code, errOut.String())
+		t.Fatalf("loxx %s: exit %d\nstderr: %s", strings.Join(args, " "), code, errOut.String())
 	}
 	return out.String(), errOut.String()
 }
 
 func TestAddAndSearch(t *testing.T) {
-	t.Setenv("LOC_DB_PATH", filepath.Join(t.TempDir(), "history.db"))
+	t.Setenv("LOXX_DB_PATH", filepath.Join(t.TempDir(), "history.db"))
 
 	runOK(t, "add", "--cwd", "/srv/api", "--exit", "0", "docker run -v pgdata:/var/lib/postgresql/data postgres:16")
 	_, stderr := runOK(t, "add", "--exit", "1", "export DB_PASSWORD=hunter2")
@@ -84,7 +84,7 @@ func TestAddAndSearch(t *testing.T) {
 }
 
 func TestAddUsageErrors(t *testing.T) {
-	t.Setenv("LOC_DB_PATH", filepath.Join(t.TempDir(), "history.db"))
+	t.Setenv("LOXX_DB_PATH", filepath.Join(t.TempDir(), "history.db"))
 	for _, args := range [][]string{
 		{"add"},
 		{"add", "one", "two"},
@@ -95,14 +95,14 @@ func TestAddUsageErrors(t *testing.T) {
 	} {
 		var out, errOut bytes.Buffer
 		if code := run(args, &out, &errOut); code != 2 {
-			t.Errorf("loc %q: exit %d, want 2", args, code)
+			t.Errorf("loxx %q: exit %d, want 2", args, code)
 		}
 	}
 }
 
 func TestEmbedPending(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "history.db")
-	t.Setenv("LOC_DB_PATH", path)
+	t.Setenv("LOXX_DB_PATH", path)
 	runOK(t, "add", "git status")
 	runOK(t, "add", "docker compose up -d")
 
@@ -132,11 +132,11 @@ func TestEmbedPending(t *testing.T) {
 }
 
 func TestEmbedUsage(t *testing.T) {
-	t.Setenv("LOC_DB_PATH", filepath.Join(t.TempDir(), "history.db"))
+	t.Setenv("LOXX_DB_PATH", filepath.Join(t.TempDir(), "history.db"))
 	for _, args := range [][]string{{"embed"}, {"embed", "--pending", "x"}, {"embed", "--pending", "--workers", "0"}} {
 		var out, errOut bytes.Buffer
 		if code := run(args, &out, &errOut); code != 2 {
-			t.Errorf("loc %q: exit %d, want 2", args, code)
+			t.Errorf("loxx %q: exit %d, want 2", args, code)
 		}
 	}
 }

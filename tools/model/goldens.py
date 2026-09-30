@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dev-only: generate golden token ids and embeddings for loc's Go model.
+"""Dev-only: generate golden token ids and embeddings for loxx's Go model.
 
 The reference is sentence-transformers itself (full f32 weights), so the Go
 tests measure both implementation errors and the f16 conversion loss.

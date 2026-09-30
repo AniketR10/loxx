@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AniketR10/loc/internal/scrub"
-	"github.com/AniketR10/loc/internal/store"
+	"github.com/AniketR10/loxx/internal/scrub"
+	"github.com/AniketR10/loxx/internal/store"
 )
 
-// runRecord stores one finished command. The shell hooks (`loc init`) call it
+// runRecord stores one finished command. The shell hooks (`loxx init`) call it
 // in the background after every command, so it must stay fast: open the
 // database, scrub, insert, maybe start a background embed, exit. It never
 // loads the embedding model.
@@ -25,7 +25,7 @@ func runRecord(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("record", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, "Usage: loc record [--exit N] [--start T] [--end T] [--cwd DIR] [--session ID] -- <command>")
+		fmt.Fprintln(stderr, "Usage: loxx record [--exit N] [--start T] [--end T] [--cwd DIR] [--session ID] -- <command>")
 		fmt.Fprintln(stderr)
 		fmt.Fprintln(stderr, "Records a finished command. Called by the shell hooks; times are Unix epoch seconds.")
 		fmt.Fprintln(stderr)
@@ -75,12 +75,12 @@ func runRecord(args []string, stdout, stderr io.Writer) int {
 	e.Hostname, _ = os.Hostname()
 	startedAt, err := parseEpoch(*start)
 	if err != nil {
-		fmt.Fprintln(stderr, "loc record: --start:", err)
+		fmt.Fprintln(stderr, "loxx record: --start:", err)
 		return 2
 	}
 	finishedAt, err := parseEpoch(*end)
 	if err != nil {
-		fmt.Fprintln(stderr, "loc record: --end:", err)
+		fmt.Fprintln(stderr, "loxx record: --end:", err)
 		return 2
 	}
 	e.StartedAt = startedAt
@@ -91,23 +91,23 @@ func runRecord(args []string, stdout, stderr io.Writer) int {
 
 	path, err := store.DefaultPath()
 	if err != nil {
-		fmt.Fprintln(stderr, "loc record:", err)
+		fmt.Fprintln(stderr, "loxx record:", err)
 		return 1
 	}
 	ctx := context.Background()
 	db, err := store.Open(ctx, path)
 	if err != nil {
-		fmt.Fprintln(stderr, "loc record:", err)
+		fmt.Fprintln(stderr, "loxx record:", err)
 		return 1
 	}
 	_, err = db.Add(ctx, e)
 	db.Close()
 	if err != nil {
-		fmt.Fprintln(stderr, "loc record:", err)
+		fmt.Fprintln(stderr, "loxx record:", err)
 		return 1
 	}
 	if err := startBackgroundEmbed(path); err != nil {
-		fmt.Fprintln(stderr, "loc record: starting background embed:", err)
+		fmt.Fprintln(stderr, "loxx record: starting background embed:", err)
 		return 1
 	}
 	return 0

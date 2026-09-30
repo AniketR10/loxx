@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Dev-only: convert all-MiniLM-L6-v2 weights into the f16 file loc embeds.
+"""Dev-only: convert all-MiniLM-L6-v2 weights into the f16 file loxx embeds.
 
 Reads a Hugging Face snapshot directory and writes, into the output directory:
-  minilm-l6-v2.f16.safetensors  every tensor loc uses, cast f32 -> f16
+  minilm-l6-v2.f16.safetensors  every tensor loxx uses, cast f32 -> f16
   vocab.txt                     the WordPiece vocabulary, copied unchanged
 
 Dropped: embeddings.position_ids (an index buffer) and pooler.* (unused:

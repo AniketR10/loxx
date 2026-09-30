@@ -1,4 +1,4 @@
-// Command loc is a local-first shell history tool with hybrid keyword and
+// Command loxx is a local-first shell history tool with hybrid keyword and
 // semantic search.
 package main
 
@@ -23,10 +23,10 @@ func commands() []command {
 		{name: "embed", summary: "embed commands for semantic search", run: runEmbed},
 		{name: "import", summary: "import existing bash/zsh history", run: runImport},
 		{name: "init", summary: "print the shell hook that records commands", run: runInit},
-		{name: "panel", summary: "open the search panel (what plain `loc` does)", run: runPanel},
+		{name: "panel", summary: "open the search panel (what plain `loxx` does)", run: runPanel},
 		{name: "record", summary: "record a finished command (used by the shell hook)", run: runRecord},
 		{name: "search", summary: "search recorded commands by meaning and keyword", run: runSearch},
-		{name: "version", summary: "print the loc version", run: runVersion},
+		{name: "version", summary: "print the loxx version", run: runVersion},
 	}
 }
 
@@ -49,14 +49,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return c.run(args[1:], stdout, stderr)
 		}
 	}
-	fmt.Fprintf(stderr, "loc: unknown command %q\n\n", args[0])
+	fmt.Fprintf(stderr, "loxx: unknown command %q\n\n", args[0])
 	usage(stderr)
 	return 2
 }
 
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "Usage: loc                       open the search panel")
-	fmt.Fprintln(w, "       loc <command> [arguments]")
+	fmt.Fprintln(w, "Usage: loxx                       open the search panel")
+	fmt.Fprintln(w, "       loxx <command> [arguments]")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Commands:")
 	for _, c := range commands() {
@@ -66,9 +66,9 @@ func usage(w io.Writer) {
 
 func runVersion(args []string, stdout, stderr io.Writer) int {
 	if len(args) != 0 {
-		fmt.Fprintln(stderr, "loc version: takes no arguments")
+		fmt.Fprintln(stderr, "loxx version: takes no arguments")
 		return 2
 	}
-	fmt.Fprintf(stdout, "loc %s\n", version)
+	fmt.Fprintf(stdout, "loxx %s\n", version)
 	return 0
 }
