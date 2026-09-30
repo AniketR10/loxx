@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AniketR10/loc/internal/store"
+	"github.com/AniketR10/loxx/internal/store"
 )
 
 // Details formats a result's metadata line, e.g.

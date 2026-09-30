@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Dev-only Phase 2 bake-off: compare embedding models on a local eval set.
 
-Every model ranks the same candidate pool (the unique commands in a loc
+Every model ranks the same candidate pool (the unique commands in a loxx
 history database) for each eval query. Each model is scored twice:
 semantic-only, and hybrid (semantic + keyword merged with Reciprocal Rank
-Fusion), since hybrid is what loc will ship.
+Fusion), since hybrid is what loxx will ship.
 
 Usage:
   bakeoff.py --db HISTORY_DB --queries QUERIES_JSONL --l12 PATH_TO_L12_DIR
@@ -43,12 +43,12 @@ def load(db_path, queries_path):
 
 
 def words(text):
-    # Same split as loc's ftsQuery: runs of letters and digits.
+    # Same split as loxx's ftsQuery: runs of letters and digits.
     return re.findall(r"[^\W_]+", text)
 
 
 def keyword_ranker(texts, joiner):
-    """BM25 over FTS5. joiner " AND " mirrors today's `loc search`; " OR " is
+    """BM25 over FTS5. joiner " AND " mirrors today's `loxx search`; " OR " is
     a candidate keyword side for hybrid search."""
     con = sqlite3.connect(":memory:")
     con.execute("CREATE VIRTUAL TABLE f USING fts5(text)")
@@ -148,7 +148,7 @@ def main():
 
     kw_and = keyword_ranker(texts, " AND ")
     kw_or = keyword_ranker(texts, " OR ")
-    rows = [("keyword AND (today's loc search)", *evaluate(kw_and, queries), None),
+    rows = [("keyword AND (today's loxx search)", *evaluate(kw_and, queries), None),
             ("keyword OR (bm25)", *evaluate(kw_or, queries), None)]
     misses = {}
     for name, embed_docs, embed_query in models(args):

@@ -6,7 +6,7 @@
 
 ## Context
 
-`loc` embeds every unique shell command with a model compiled into the binary
+`loxx` embeds every unique shell command with a model compiled into the binary
 (no Ollama, no network). The user first chose all-MiniLM-L12-v2. Before
 writing any Go inference code, we ran a cheap comparison in Python, to avoid
 spending a week building the wrong model.
@@ -14,8 +14,8 @@ spending a week building the wrong model.
 ## Method
 
 - **Pool:** 369 unique commands from the user's real `~/.bash_history`
-  (990 lines). Each line went through `loc add`, so the pool is scrubbed
-  exactly as `loc` would store it.
+  (990 lines). Each line went through `loxx add`, so the pool is scrubbed
+  exactly as `loxx` would store it.
 - **Eval set:** 40 natural-language questions, each with the command(s) it
   should find. Claude drafted them from the history, deliberately phrased
   *without* the command's own words (e.g. "sync my fork with the upstream
@@ -30,7 +30,7 @@ spending a week building the wrong model.
 
 | Ranker | Top-1 | Top-5 | MRR | Embed 369 cmds (Python, torch/numpy) |
 |---|---|---|---|---|
-| keyword AND (Phase 1 `loc search`) | 0.00 | 0.00 | 0.00 | |
+| keyword AND (Phase 1 `loxx search`) | 0.00 | 0.00 | 0.00 | |
 | keyword OR, BM25 | 0.40 | 0.53 | 0.47 | |
 | potion-base-8M (model2vec), semantic | 0.40 | 0.75 | 0.53 | 0.03 s |
 | potion-base-8M (model2vec), hybrid | 0.40 | 0.80 | 0.55 | |
@@ -62,7 +62,7 @@ the cost.
 
 ## Learnings
 
-### For loc
+### For loxx
 
 1. **Keyword AND is useless for natural-language queries** (0/40). Phase 3's
    keyword side must be OR-style (or AND for short, as-you-type queries and OR

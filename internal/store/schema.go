@@ -72,12 +72,12 @@ CREATE TABLE embeddings (
 	`ALTER TABLE commands DROP COLUMN embedded_at;`,
 }
 
-// SchemaVersion is the schema version this build of loc writes.
+// SchemaVersion is the schema version this build of loxx writes.
 var SchemaVersion = len(migrations)
 
 // migrate brings the database up to SchemaVersion. The version is first read
 // without a write lock, so the common already-migrated case stays cheap for
-// the many short-lived loc processes that open the database.
+// the many short-lived loxx processes that open the database.
 func migrate(ctx context.Context, db *sql.DB) error {
 	if v, err := schemaVersion(ctx, db); err != nil {
 		return fmt.Errorf("reading schema version: %w", err)
@@ -101,7 +101,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 	if v > SchemaVersion {
-		return fmt.Errorf("database schema version %d is newer than this loc supports (%d); upgrade loc", v, SchemaVersion)
+		return fmt.Errorf("database schema version %d is newer than this loxx supports (%d); upgrade loxx", v, SchemaVersion)
 	}
 	for ; v < SchemaVersion; v++ {
 		if _, err := tx.ExecContext(ctx, migrations[v]); err != nil {

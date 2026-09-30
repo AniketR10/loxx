@@ -28,7 +28,7 @@ pseudo-terminal:
 
 | | Hand-rolled (`x/term`) | Bubbletea v2.0.9 alone |
 |---|---|---|
-| Binary | 1.5 MB | 3.6 MB (**+2.1 MB**, ~4% of loc's 52 MB) |
+| Binary | 1.5 MB | 3.6 MB (**+2.1 MB**, ~4% of loxx's 52 MB) |
 | First paint | 1.4 ms | **24.8 ms** (max 25.5) |
 | Modules | 1 | 16, all MIT or BSD |
 

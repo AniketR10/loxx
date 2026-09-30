@@ -1,4 +1,4 @@
-// Package tui is the inline search panel that `loc` opens: a query line, the
+// Package tui is the inline search panel that `loxx` opens: a query line, the
 // best matching commands, and a footer. Keyword results appear on every
 // keystroke; results ranked by meaning replace them shortly after typing
 // pauses.
@@ -14,9 +14,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/AniketR10/loc/internal/format"
-	"github.com/AniketR10/loc/internal/search"
-	"github.com/AniketR10/loc/internal/store"
+	"github.com/AniketR10/loxx/internal/format"
+	"github.com/AniketR10/loxx/internal/search"
+	"github.com/AniketR10/loxx/internal/store"
 )
 
 // Options describe where the panel was opened from.
@@ -238,7 +238,7 @@ func (m *model) View() tea.View {
 		width = 80
 	}
 	var b strings.Builder
-	b.WriteString(bold + "loc ❯ " + reset + string(m.query) + reverse + " " + reset + "\n")
+	b.WriteString(bold + "loxx ❯ " + reset + string(m.query) + reverse + " " + reset + "\n")
 
 	rows := m.rows()
 	now := time.Now()

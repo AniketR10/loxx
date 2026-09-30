@@ -10,15 +10,15 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/AniketR10/loc/internal/scrub"
-	"github.com/AniketR10/loc/internal/store"
+	"github.com/AniketR10/loxx/internal/scrub"
+	"github.com/AniketR10/loxx/internal/store"
 )
 
 func runAdd(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("add", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, "Usage: loc add [--cwd DIR] [--exit CODE] <command>")
+		fmt.Fprintln(stderr, "Usage: loxx add [--cwd DIR] [--exit CODE] <command>")
 		fmt.Fprintln(stderr)
 		fmt.Fprintln(stderr, "Records a command manually. Quote the command so it is one argument.")
 		fmt.Fprintln(stderr)
@@ -47,19 +47,19 @@ func runAdd(args []string, stdout, stderr io.Writer) int {
 
 	raw := fs.Arg(0)
 	if scrub.Ignored(raw) {
-		fmt.Fprintln(stderr, "loc: not recorded (command starts with a space)")
+		fmt.Fprintln(stderr, "loxx: not recorded (command starts with a space)")
 		return 0
 	}
 	cmd := scrub.Scrub(raw)
 	if cmd.Text() == "" {
-		fmt.Fprintln(stderr, "loc add: command is empty")
+		fmt.Fprintln(stderr, "loxx add: command is empty")
 		return 2
 	}
 
 	if *cwd == "" {
 		wd, err := os.Getwd()
 		if err != nil {
-			fmt.Fprintln(stderr, "loc add:", err)
+			fmt.Fprintln(stderr, "loxx add:", err)
 			return 1
 		}
 		*cwd = wd
@@ -69,7 +69,7 @@ func runAdd(args []string, stdout, stderr io.Writer) int {
 	ctx := context.Background()
 	db, err := openDB(ctx)
 	if err != nil {
-		fmt.Fprintln(stderr, "loc add:", err)
+		fmt.Fprintln(stderr, "loxx add:", err)
 		return 1
 	}
 	defer db.Close()
@@ -83,11 +83,11 @@ func runAdd(args []string, stdout, stderr io.Writer) int {
 		Source:    store.SourceManual,
 	})
 	if err != nil {
-		fmt.Fprintln(stderr, "loc add:", err)
+		fmt.Fprintln(stderr, "loxx add:", err)
 		return 1
 	}
 	if n := cmd.Redactions(); n > 0 {
-		fmt.Fprintf(stderr, "loc: redacted %d secret(s) before storing\n", n)
+		fmt.Fprintf(stderr, "loxx: redacted %d secret(s) before storing\n", n)
 	}
 	return 0
 }

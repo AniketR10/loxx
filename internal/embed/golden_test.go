@@ -94,7 +94,7 @@ func checkEmbeddings(t *testing.T, m *Model, minCosine float64) float64 {
 	return worst
 }
 
-// minCosineF16 is the agreement required between loc's shipped f16 model and
+// minCosineF16 is the agreement required between loxx's shipped f16 model and
 // the f32 sentence-transformers reference.
 const minCosineF16 = 0.9999
 
@@ -107,11 +107,11 @@ func TestEmbedGoldenF16(t *testing.T) {
 }
 
 // TestEmbedGoldenF32 checks the implementation alone, without f16 rounding.
-// Point LOC_EMBED_F32 at the original model.safetensors to run it.
+// Point LOXX_EMBED_F32 at the original model.safetensors to run it.
 func TestEmbedGoldenF32(t *testing.T) {
-	path := os.Getenv("LOC_EMBED_F32")
+	path := os.Getenv("LOXX_EMBED_F32")
 	if path == "" {
-		t.Skip("set LOC_EMBED_F32 to the original f32 model.safetensors")
+		t.Skip("set LOXX_EMBED_F32 to the original f32 model.safetensors")
 	}
 	weights, err := os.ReadFile(path)
 	if err != nil {

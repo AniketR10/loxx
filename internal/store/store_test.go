@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AniketR10/loc/internal/scrub"
-	"github.com/AniketR10/loc/internal/secretcorpus"
+	"github.com/AniketR10/loxx/internal/scrub"
+	"github.com/AniketR10/loxx/internal/secretcorpus"
 )
 
 // The concurrency test re-runs this test binary as writer processes.
 const (
-	writerEnv       = "LOC_STORE_TEST_WRITER"
+	writerEnv       = "LOXX_STORE_TEST_WRITER"
 	writerCount     = 20
 	writesPerWriter = 500
 	distinctCmds    = 25
@@ -87,7 +87,7 @@ func count(t *testing.T, db *DB, query string, args ...any) int {
 
 func TestOpenPermissions(t *testing.T) {
 	// A space and URI-special characters check that dsn escapes the path.
-	dir := filepath.Join(t.TempDir(), "data dir #1?", "loc")
+	dir := filepath.Join(t.TempDir(), "data dir #1?", "loxx")
 	path := filepath.Join(dir, "history.db")
 	db, err := Open(context.Background(), path)
 	if err != nil {
@@ -221,7 +221,7 @@ func TestMigrate(t *testing.T) {
 		t.Errorf("schema_version = %d, want %d", n, SchemaVersion)
 	}
 
-	// A database from a newer loc must be refused, not silently used.
+	// A database from a newer loxx must be refused, not silently used.
 	if _, err := db.sql.Exec(`UPDATE meta SET value = ? WHERE key = 'schema_version'`, strconv.Itoa(SchemaVersion+1)); err != nil {
 		t.Fatal(err)
 	}
@@ -317,4 +317,62 @@ func TestConcurrentWriters(t *testing.T) {
 	if n := count(t, db, `SELECT count(*) FROM commands WHERE run_count != ?`, total/distinctCmds); n != 0 {
 		t.Errorf("%d commands have a wrong run_count", n)
 	}
+}
+
+// TestDefaultPathMovesLegacyDir checks the loc → loxx rename (2026-09-30):
+// existing history moves over once, and nothing else is ever touched.
+func TestDefaultPathMovesLegacyDir(t *testing.T) {
+	setup := func(t *testing.T, files ...string) string {
+		t.Helper()
+		data := t.TempDir()
+		t.Setenv("XDG_DATA_HOME", data)
+		t.Setenv("LOXX_DB_PATH", "")
+		for _, f := range files {
+			p := filepath.Join(data, f)
+			if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(p, []byte(f), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return data
+	}
+	exists := func(p string) bool { _, err := os.Stat(p); return err == nil }
+
+	t.Run("old history moves", func(t *testing.T) {
+		data := setup(t, "loc/history.db", "loc/history.db.lock")
+		got, err := DefaultPath()
+		if err != nil || got != filepath.Join(data, "loxx", "history.db") {
+			t.Fatalf("DefaultPath = %q, %v", got, err)
+		}
+		if !exists(filepath.Join(data, "loxx", "history.db")) || !exists(filepath.Join(data, "loxx", "history.db.lock")) || exists(filepath.Join(data, "loc")) {
+			t.Error("the loc directory was not moved to loxx")
+		}
+	})
+	t.Run("existing loxx is left alone", func(t *testing.T) {
+		data := setup(t, "loc/history.db", "loxx/history.db")
+		if _, err := DefaultPath(); err != nil {
+			t.Fatal(err)
+		}
+		if b, _ := os.ReadFile(filepath.Join(data, "loxx", "history.db")); string(b) != "loxx/history.db" || !exists(filepath.Join(data, "loc", "history.db")) {
+			t.Error("an existing loxx directory was overwritten, or loc was moved anyway")
+		}
+	})
+	t.Run("someone else's loc directory is not touched", func(t *testing.T) {
+		data := setup(t, "loc/other-app.conf")
+		if _, err := DefaultPath(); err != nil {
+			t.Fatal(err)
+		}
+		if !exists(filepath.Join(data, "loc", "other-app.conf")) || exists(filepath.Join(data, "loxx")) {
+			t.Error("a loc directory without our history.db was moved")
+		}
+	})
+	t.Run("LOXX_DB_PATH skips the move", func(t *testing.T) {
+		data := setup(t, "loc/history.db")
+		t.Setenv("LOXX_DB_PATH", filepath.Join(data, "custom.db"))
+		if got, _ := DefaultPath(); got != filepath.Join(data, "custom.db") || !exists(filepath.Join(data, "loc", "history.db")) {
+			t.Errorf("DefaultPath = %q, and loc should stay put", got)
+		}
+	})
 }

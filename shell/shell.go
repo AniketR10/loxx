@@ -1,4 +1,4 @@
-// Package shell holds the shell integration scripts that `loc init` prints.
+// Package shell holds the shell integration scripts that `loxx init` prints.
 package shell
 
 import (
@@ -8,10 +8,10 @@ import (
 )
 
 var (
-	//go:embed loc.zsh
+	//go:embed loxx.zsh
 	zshScript string
 
-	//go:embed loc.bash
+	//go:embed loxx.bash
 	bashScript string
 
 	// bash-preexec 0.7.0 (MIT), vendored unmodified from
@@ -23,14 +23,14 @@ var (
 	bashPreexecLicense string
 )
 
-// bashPreexecEnd ends the here-document that loc.bash sources bash-preexec
+// bashPreexecEnd ends the here-document that loxx.bash sources bash-preexec
 // from; it must never occur in bash-preexec itself.
-const bashPreexecEnd = "__LOC_BASH_PREEXEC__"
+const bashPreexecEnd = "__LOXX_BASH_PREEXEC__"
 
 // Script returns the integration script for shell ("bash" or "zsh"), with
-// locPath, the absolute path of the loc binary, filled in so the hooks don't
+// binPath, the absolute path of the loxx binary, filled in so the hooks don't
 // depend on $PATH.
-func Script(shell, locPath string) (string, error) {
+func Script(shell, binPath string) (string, error) {
 	var s string
 	switch shell {
 	case "zsh":
@@ -44,7 +44,7 @@ func Script(shell, locPath string) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported shell %q (supported: bash, zsh)", shell)
 	}
-	return strings.Replace(s, "__LOC_BIN__", quote(locPath), 1), nil
+	return strings.Replace(s, "__LOXX_BIN__", quote(binPath), 1), nil
 }
 
 // quote returns s as a single-quoted shell word, safe in bash and zsh.

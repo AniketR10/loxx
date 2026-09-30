@@ -55,7 +55,7 @@ func (db *DB) PendingEmbeddings(ctx context.Context, modelID string, limit int) 
 
 // SaveEmbeddings stores vectors from modelID in one transaction, replacing any
 // older vector for the same command. Commands deleted in the meantime (e.g.
-// by `loc forget`) are skipped rather than failing the batch.
+// by `loxx forget`) are skipped rather than failing the batch.
 func (db *DB) SaveEmbeddings(ctx context.Context, modelID string, es []Embedding) error {
 	tx, err := db.sql.BeginTx(ctx, nil)
 	if err != nil {

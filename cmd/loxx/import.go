@@ -10,17 +10,17 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/AniketR10/loc/internal/format"
-	"github.com/AniketR10/loc/internal/importer"
-	"github.com/AniketR10/loc/internal/scrub"
-	"github.com/AniketR10/loc/internal/store"
+	"github.com/AniketR10/loxx/internal/format"
+	"github.com/AniketR10/loxx/internal/importer"
+	"github.com/AniketR10/loxx/internal/scrub"
+	"github.com/AniketR10/loxx/internal/store"
 )
 
 func runImport(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("import", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, "Usage: loc import [--bash FILE] [--zsh FILE] [--force]")
+		fmt.Fprintln(stderr, "Usage: loxx import [--bash FILE] [--zsh FILE] [--force]")
 		fmt.Fprintln(stderr)
 		fmt.Fprintln(stderr, "Imports existing shell history, scrubbed like live commands. With no files")
 		fmt.Fprintln(stderr, "given, imports ~/.bash_history and ~/.zsh_history if they exist. A file is")
@@ -58,7 +58,7 @@ func runImport(args []string, stdout, stderr io.Writer) int {
 	} else {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			fmt.Fprintln(stderr, "loc import:", err)
+			fmt.Fprintln(stderr, "loxx import:", err)
 			return 1
 		}
 		sources = []source{
@@ -69,13 +69,13 @@ func runImport(args []string, stdout, stderr io.Writer) int {
 
 	path, err := store.DefaultPath()
 	if err != nil {
-		fmt.Fprintln(stderr, "loc import:", err)
+		fmt.Fprintln(stderr, "loxx import:", err)
 		return 1
 	}
 	ctx := context.Background()
 	db, err := store.Open(ctx, path)
 	if err != nil {
-		fmt.Fprintln(stderr, "loc import:", err)
+		fmt.Fprintln(stderr, "loxx import:", err)
 		return 1
 	}
 	defer db.Close()
@@ -86,15 +86,15 @@ func runImport(args []string, stdout, stderr io.Writer) int {
 	for _, src := range sources {
 		abs, err := filepath.Abs(src.path)
 		if err != nil {
-			fmt.Fprintln(stderr, "loc import:", err)
+			fmt.Fprintln(stderr, "loxx import:", err)
 			return 1
 		}
 		marker := "imported:" + abs
 		if _, done, err := db.Meta(ctx, marker); err != nil {
-			fmt.Fprintln(stderr, "loc import:", err)
+			fmt.Fprintln(stderr, "loxx import:", err)
 			return 1
 		} else if done && !*force {
-			fmt.Fprintf(stderr, "loc: %s was already imported (use --force to import it again)\n", format.TildePath(abs, home))
+			fmt.Fprintf(stderr, "loxx: %s was already imported (use --force to import it again)\n", format.TildePath(abs, home))
 			continue
 		}
 		f, err := os.Open(abs)
@@ -102,13 +102,13 @@ func runImport(args []string, stdout, stderr io.Writer) int {
 			continue
 		}
 		if err != nil {
-			fmt.Fprintln(stderr, "loc import:", err)
+			fmt.Fprintln(stderr, "loxx import:", err)
 			return 1
 		}
 		entries, err := src.parse(f)
 		f.Close()
 		if err != nil {
-			fmt.Fprintf(stderr, "loc import: reading %s: %v\n", abs, err)
+			fmt.Fprintf(stderr, "loxx import: reading %s: %v\n", abs, err)
 			return 1
 		}
 
@@ -134,20 +134,20 @@ func runImport(args []string, stdout, stderr io.Writer) int {
 			})
 		}
 		if err := db.AddBatch(ctx, execs); err != nil {
-			fmt.Fprintf(stderr, "loc import: storing %s: %v\n", abs, err)
+			fmt.Fprintf(stderr, "loxx import: storing %s: %v\n", abs, err)
 			return 1
 		}
 		if err := db.SetMeta(ctx, marker, "1"); err != nil {
-			fmt.Fprintln(stderr, "loc import:", err)
+			fmt.Fprintln(stderr, "loxx import:", err)
 			return 1
 		}
 		imported += len(execs)
-		fmt.Fprintf(stderr, "loc: imported %d command(s) from %s (%d secret(s) redacted, %d skipped)\n",
+		fmt.Fprintf(stderr, "loxx: imported %d command(s) from %s (%d secret(s) redacted, %d skipped)\n",
 			len(execs), format.TildePath(abs, home), redactions, skipped)
 	}
 	if imported > 0 {
 		if err := startBackgroundEmbed(path); err != nil {
-			fmt.Fprintln(stderr, "loc import: starting background embed:", err)
+			fmt.Fprintln(stderr, "loxx import: starting background embed:", err)
 			return 1
 		}
 	}

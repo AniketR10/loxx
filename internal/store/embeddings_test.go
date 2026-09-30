@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/AniketR10/loc/internal/scrub"
+	"github.com/AniketR10/loxx/internal/scrub"
 )
 
 func TestEmbeddingsLifecycle(t *testing.T) {

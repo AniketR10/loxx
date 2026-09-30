@@ -6,16 +6,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AniketR10/loc/internal/store"
+	"github.com/AniketR10/loxx/internal/store"
 )
 
 // BenchmarkKeywordLatency measures what the user waits for before the first
 // results appear: open the database, run the keyword query, fetch details.
-// Point LOC_BENCH_DB at a large history (e.g. 100k commands) to run it.
+// Point LOXX_BENCH_DB at a large history (e.g. 100k commands) to run it.
 func BenchmarkKeywordLatency(b *testing.B) {
-	path := os.Getenv("LOC_BENCH_DB")
+	path := os.Getenv("LOXX_BENCH_DB")
 	if path == "" {
-		b.Skip("set LOC_BENCH_DB to a history database")
+		b.Skip("set LOXX_BENCH_DB to a history database")
 	}
 	ctx := context.Background()
 	for _, q := range []string{"docker run", "kubectl get pods", "opt54321", "nothing matches this"} {

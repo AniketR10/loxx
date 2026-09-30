@@ -1,12 +1,12 @@
-// Command eval is a dev-only harness that scores loc's search on an eval set:
+// Command eval is a dev-only harness that scores loxx's search on an eval set:
 // for each natural-language query, where does the expected command rank? It
-// ranks through internal/search, so what it measures is what loc ships.
+// ranks through internal/search, so what it measures is what loxx ships.
 //
 // Usage:
 //
 //	go run ./tools/eval --db HISTORY_DB --queries QUERIES_JSONL [--grid]
 //
-// The database must be fully embedded first (`loc embed --pending`). The eval
+// The database must be fully embedded first (`loxx embed --pending`). The eval
 // set is JSON lines of {"query": "...", "expected": ["command text", ...]};
 // see docs/decisions/0001-embedding-model.md. --grid also scores a small grid
 // of fusion settings.
@@ -22,15 +22,15 @@ import (
 	"os"
 	"time"
 
-	"github.com/AniketR10/loc/internal/embed"
-	"github.com/AniketR10/loc/internal/search"
-	"github.com/AniketR10/loc/internal/store"
+	"github.com/AniketR10/loxx/internal/embed"
+	"github.com/AniketR10/loxx/internal/search"
+	"github.com/AniketR10/loxx/internal/store"
 )
 
 const topK = 10
 
 func main() {
-	dbPath := flag.String("db", "", "loc history database (fully embedded)")
+	dbPath := flag.String("db", "", "loxx history database (fully embedded)")
 	queriesPath := flag.String("queries", "", "eval set, JSON lines")
 	grid := flag.Bool("grid", false, "also score a grid of fusion settings")
 	flag.Parse()
@@ -58,7 +58,7 @@ func run(ctx context.Context, dbPath, queriesPath string, grid bool) error {
 	if n, err := db.CountPendingEmbeddings(ctx, embed.ModelID); err != nil {
 		return err
 	} else if n > 0 {
-		return fmt.Errorf("%d commands are not embedded yet; run `LOC_DB_PATH=%s loc embed --pending`", n, dbPath)
+		return fmt.Errorf("%d commands are not embedded yet; run `LOXX_DB_PATH=%s loxx embed --pending`", n, dbPath)
 	}
 	ids, err := commandIDs(dbPath)
 	if err != nil {

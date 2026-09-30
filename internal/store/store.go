@@ -18,7 +18,7 @@ import (
 
 	_ "modernc.org/sqlite" // registers the "sqlite" driver
 
-	"github.com/AniketR10/loc/internal/scrub"
+	"github.com/AniketR10/loxx/internal/scrub"
 )
 
 // DB is an open history database.
@@ -26,11 +26,15 @@ type DB struct {
 	sql *sql.DB
 }
 
-// DefaultPath returns the history database location: $LOC_DB_PATH if set,
-// otherwise $XDG_DATA_HOME/loc/history.db, falling back to
-// ~/.local/share/loc/history.db as the XDG spec requires.
+// DefaultPath returns the history database location: $LOXX_DB_PATH if set,
+// otherwise $XDG_DATA_HOME/loxx/history.db, falling back to
+// ~/.local/share/loxx/history.db as the XDG spec requires.
+//
+// loxx was called loc until 2026-09-30. If the loxx data directory does not
+// exist yet but the old loc one does, it is moved into place first, so
+// existing history carries over.
 func DefaultPath() (string, error) {
-	if p := os.Getenv("LOC_DB_PATH"); p != "" {
+	if p := os.Getenv("LOXX_DB_PATH"); p != "" {
 		return p, nil
 	}
 	dir := os.Getenv("XDG_DATA_HOME")
@@ -41,7 +45,31 @@ func DefaultPath() (string, error) {
 		}
 		dir = filepath.Join(home, ".local", "share")
 	}
-	return filepath.Join(dir, "loc", "history.db"), nil
+	newDir := filepath.Join(dir, "loxx")
+	if err := moveLegacyDir(filepath.Join(dir, "loc"), newDir); err != nil {
+		return "", err
+	}
+	return filepath.Join(newDir, "history.db"), nil
+}
+
+// moveLegacyDir renames the old data directory to the new one, but only when
+// the new one does not exist and the old one holds our history.db (another
+// program could own a directory called "loc"). Racing processes are fine:
+// whoever loses finds the new directory already in place.
+func moveLegacyDir(oldDir, newDir string) error {
+	if _, err := os.Stat(newDir); !errors.Is(err, os.ErrNotExist) {
+		return nil // already there (or not ours to judge)
+	}
+	if _, err := os.Stat(filepath.Join(oldDir, "history.db")); err != nil {
+		return nil // nothing of ours to move
+	}
+	if err := os.Rename(oldDir, newDir); err != nil {
+		if _, statErr := os.Stat(newDir); statErr == nil {
+			return nil // another process moved it first
+		}
+		return fmt.Errorf("moving %s to %s: %w", oldDir, newDir, err)
+	}
+	return nil
 }
 
 // Open opens the database at path, creating it and any missing parent
@@ -125,7 +153,7 @@ type Source string
 const (
 	SourceLive   Source = "live"   // captured by the shell hook
 	SourceImport Source = "import" // imported from an existing history file
-	SourceManual Source = "manual" // added with `loc add`
+	SourceManual Source = "manual" // added with `loxx add`
 )
 
 // Execution is one run of a command. Zero values mean "unknown" and are

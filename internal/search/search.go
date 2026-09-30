@@ -6,8 +6,8 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/AniketR10/loc/internal/embed"
-	"github.com/AniketR10/loc/internal/store"
+	"github.com/AniketR10/loxx/internal/embed"
+	"github.com/AniketR10/loxx/internal/store"
 )
 
 // candidates is how many results each side contributes to fusion.
@@ -22,7 +22,7 @@ type Params struct {
 	RRFK           float64
 }
 
-// DefaultParams are the weights loc ships with, chosen on two local eval sets
+// DefaultParams are the weights loxx ships with, chosen on two local eval sets
 // drawn from real history (2026-09-27, see ROADMAP Phase 3):
 //
 //   - 40 natural-language questions: semantic-only 0.55/0.80/0.65

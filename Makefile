@@ -1,5 +1,5 @@
 STATICCHECK_VERSION := 2026.1
-# Only v* tags are loc versions; other tags (e.g. model-minilm-l6-v2-f16, the
+# Only v* tags are loxx versions; other tags (e.g. model-minilm-l6-v2-f16, the
 # model weights release) must not become the version string.
 VERSION ?= $(shell git describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
@@ -12,7 +12,7 @@ export CGO_ENABLED := 0
 # tools/model/convert.py (see internal/embed/model/README.md).
 MODEL_FILE := internal/embed/model/minilm-l6-v2.f16.safetensors
 MODEL_SHA256 := aa3d97aea538b3247506fd426683a526d23ed345ac2c20ea3172296f57ea272b
-MODEL_URL := https://github.com/AniketR10/loc/releases/download/model-minilm-l6-v2-f16/minilm-l6-v2.f16.safetensors
+MODEL_URL := https://github.com/AniketR10/loxx/releases/download/model-minilm-l6-v2-f16/minilm-l6-v2.f16.safetensors
 
 .PHONY: model build test lint bench fuzz check-static clean
 
@@ -29,7 +29,7 @@ model:
 	fi
 
 build: model
-	go build -trimpath -ldflags '$(LDFLAGS)' -o bin/loc ./cmd/loc
+	go build -trimpath -ldflags '$(LDFLAGS)' -o bin/loxx ./cmd/loxx
 
 test: model
 	go test ./...
@@ -45,10 +45,10 @@ FUZZTIME ?= 60s
 fuzz:
 	go test ./internal/scrub -run '^$$' -fuzz FuzzScrub -fuzztime $(FUZZTIME)
 
-# Fails unless bin/loc is a statically linked binary (core principle P4).
+# Fails unless bin/loxx is a statically linked binary (core principle P4).
 check-static: build
-	@file bin/loc | grep -q 'statically linked' || { file bin/loc; echo 'bin/loc is not statically linked'; exit 1; }
-	@echo 'bin/loc is statically linked'
+	@file bin/loxx | grep -q 'statically linked' || { file bin/loxx; echo 'bin/loxx is not statically linked'; exit 1; }
+	@echo 'bin/loxx is statically linked'
 
 clean:
 	rm -rf bin
