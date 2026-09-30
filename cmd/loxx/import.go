@@ -99,6 +99,13 @@ func runImport(args []string, stdout, stderr io.Writer) int {
 		}
 		f, err := os.Open(abs)
 		if errors.Is(err, os.ErrNotExist) && !src.given {
+			// Mark it done anyway. Live capture records everything from now on;
+			// if this file appears later (bash writes it on exit), importing it
+			// would count those commands twice. Found by the fresh-Fedora test.
+			if err := db.SetMeta(ctx, marker, "1"); err != nil {
+				fmt.Fprintln(stderr, "loxx import:", err)
+				return 1
+			}
 			continue
 		}
 		if err != nil {
