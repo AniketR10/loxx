@@ -14,7 +14,7 @@ MODEL_FILE := internal/embed/model/minilm-l6-v2.f16.safetensors
 MODEL_SHA256 := aa3d97aea538b3247506fd426683a526d23ed345ac2c20ea3172296f57ea272b
 MODEL_URL := https://github.com/AniketR10/loxx/releases/download/model-minilm-l6-v2-f16/minilm-l6-v2.f16.safetensors
 
-.PHONY: model build test lint bench fuzz check-static clean
+.PHONY: model build dist test lint bench fuzz check-static clean
 
 model:
 	@if [ -f $(MODEL_FILE) ] && echo "$(MODEL_SHA256)  $(MODEL_FILE)" | sha256sum -c --status; then \
@@ -30,6 +30,18 @@ model:
 
 build: model
 	go build -trimpath -ldflags '$(LDFLAGS)' -o bin/loxx ./cmd/loxx
+
+# Release assets, named as install.sh expects: static binaries for each
+# architecture, the installer, and checksums for all of them.
+DIST_ARCHS := amd64 arm64
+dist: model
+	rm -rf dist && mkdir -p dist
+	for arch in $(DIST_ARCHS); do \
+		GOOS=linux GOARCH=$$arch go build -trimpath -ldflags '$(LDFLAGS)' -o dist/loxx-linux-$$arch ./cmd/loxx || exit 1; \
+		file dist/loxx-linux-$$arch | grep -q 'statically linked' || { file dist/loxx-linux-$$arch; exit 1; }; \
+	done
+	cp install.sh dist/install.sh
+	cd dist && sha256sum loxx-linux-* install.sh >checksums.txt
 
 test: model
 	go test ./...
@@ -51,4 +63,4 @@ check-static: build
 	@echo 'bin/loxx is statically linked'
 
 clean:
-	rm -rf bin
+	rm -rf bin dist
