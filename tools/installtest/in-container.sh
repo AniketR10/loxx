@@ -10,8 +10,10 @@ fail() {
 cp ~/.bashrc /tmp/bashrc.orig
 ! command -v loxx >/dev/null || fail "loxx is already installed"
 
-echo "== install (the only step)"
-LOXX_RELEASE_URL=file:///release sh /install.sh
+# The installer comes from the release itself, as a user would get it.
+echo "== install from $LOXX_RELEASE_URL (the only step)"
+curl -fsSL "$LOXX_RELEASE_URL/install.sh" -o /tmp/install.sh
+sh /tmp/install.sh
 
 echo "== a new interactive shell runs commands"
 # The shell exits with its last command's status (false: 1); that is not a
@@ -27,7 +29,7 @@ echo "$found" | grep -q 'exit 0' || fail "the command was not recorded"
 ~/.local/bin/loxx search false | grep -q 'exit 1' || fail "the failing command's exit code was not recorded"
 
 echo "== installing again"
-LOXX_RELEASE_URL=file:///release sh /install.sh 2>&1 | grep -v '^loxx install' || true
+sh /tmp/install.sh 2>&1 | grep -v '^loxx install' || true
 [ "$(grep -c '>>> loxx >>>' ~/.bashrc)" = 1 ] || fail "installing twice added a second block"
 ~/.local/bin/loxx status | grep -q '2 unique · 2 runs recorded live, 0 imported' ||
   fail "installing again changed the history (double import?)"
