@@ -94,7 +94,7 @@ fi
 # binary (`loxx search …`, `loxx import`, …).
 loxx() {
   if (($#)); then
-    "$_loxx_bin" "$@"
+    LOXX_HOOK=bash "$_loxx_bin" "$@" # tells `loxx status` the hook is active here
     return
   fi
   local chosen

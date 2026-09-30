@@ -95,6 +95,10 @@ no network calls.
 | Prompt-overhead target | **≤ 10 ms added per command** (user, 2026-09-28, after measuring bash +3.9 ms and zsh +1.3 ms) |
 | TUI library | **Bubbletea v2.0.9 alone** (no Bubbles, no Lipgloss), user 2026-09-29 after a measured spike: +2.1 MB binary, 24.8 ms first paint, 16 MIT/BSD modules (`docs/decisions/0002-tui-library.md`). Pinned below v2.0.10, which needs Go 1.26. |
 | Panel behaviour (user, 2026-09-29) | **Empty query → most recent commands.** **Tab cycles filters** (all → this dir → this session → failed). **"Failed" = the last run failed.** **"This dir" = the same directory, or anywhere in the same git repo when in one.** Enter fills the prompt and never executes (P5). |
+| Installer hosting | **`install.sh` is a GitHub Release asset**: `https://github.com/AniketR10/loxx/releases/latest/download/install.sh` (user, 2026-09-30; was O3). It is published with each release, so it always matches the binaries it downloads. It works publicly once the repo is public. **Asset naming contract for Phase 7's releases:** `loxx-linux-amd64`, `loxx-linux-arm64` (raw static binaries, no archive) and `checksums.txt` (`sha256sum` format). |
+| Config file | **None in v1** (user, 2026-09-30). With no keybinding there's nothing to configure; env vars cover edge cases (`LOXX_DB_PATH`, `LOXX_BACKGROUND_EMBED`). Add one only when a real setting needs it. |
+| Installer testing | **A local release served to a fresh Fedora podman container** (user, 2026-09-30); the real GitHub download is exercised in Phase 7. Dev-only download approved: the `fedora` container image. |
+| Distro packages vs. rc files | **Decided in Phase 7**, per package (user, 2026-09-30). |
 | Language policy | **Dev-only tooling may use any language** (Python for model conversion, golden generation, bake-offs). **Code that ships to users stays Go**, because of P1 (fast startup on every prompt), P3/P4 (single static binary, zero setup) and the install-only promise, not out of language preference. (User said the focus is performance and correctness, not language, 2026-09-27) |
 | Inference implementation | **Hand-written pure Go** (user decision, 2026-09-27; hugot rejected). If a transformer wins: BERT forward pass + WordPiece. If model2vec wins: WordPiece + lookup + mean pooling. Weights loaded from `go:embed`. Only extra dependency: `golang.org/x/text` v0.41.0 (BSD-3, needed for Unicode NFD in the tokenizer; v0.42+ requires Go 1.26). |
 | Weight precision | **f16** in the binary, converted to f32 at load (user decision, 2026-09-27; carried over from L12 to L6) |
@@ -117,7 +121,6 @@ no network calls.
 ### PROPOSED (confirm before the phase that uses it)
 | Topic | Proposal | Needed by |
 |---|---|---|
-| Config format / location | TOML at `$XDG_CONFIG_HOME/loxx/config.toml` | Phase 6 |
 | Linux architectures | amd64 + arm64 | Phase 7 |
 | Release tooling | GoReleaser + GitHub Actions | Phase 7 |
 | Distro packages | AUR, Fedora COPR, others | Phase 7 |
@@ -125,7 +128,6 @@ no network calls.
 ### OPEN (unknown: must ask)
 | # | Question | Blocks |
 |---|---|---|
-| O3 | Install URL / hosting for `install.sh` (GitHub raw? GitHub Pages? a custom domain?) | Phase 6 |
 | O6 | Go 1.26 is out (1.26.8 seen 2026-09-26), but 1.25.12 is installed locally. Move the project to Go 1.26? **Four dependencies are now pinned below latest because of this** (staticcheck 2026.1, x/text v0.41.0, x/term v0.45.0, bubbletea v2.0.9). | Any time (rising priority) |
 
 ---
@@ -387,31 +389,22 @@ zsh 5.9 turned out to be installed already.
 ### Phase 6: Zero-setup install, uninstall, and management
 **Goal:** "Install, open a new terminal, done", and just as easy to remove.
 
-**Prereqs:** answer O3.
+**Decisions:** see §3 (installer hosting, no config file, container testing, packages in Phase 7).
 
 **Tasks**
-- [ ] `install.sh`:
-  - Detect arch and download the matching release binary
-  - **Verify its checksum**
-  - Install to `~/.local/bin` (check it's on PATH; if not, add a marked PATH line)
-- [ ] `loxx setup`: detect the user's shells and add a marked, idempotent block to `~/.bashrc` / `~/.zshrc`:
-  ```
-  # >>> loxx >>>
-  eval "$(loxx init bash)"
-  # <<< loxx <<<
-  ```
-- [ ] `install.sh` calls `loxx setup` automatically
-- [ ] First run: automatic history import + background embedding, with no user action
-- [ ] `loxx uninstall`: remove marked blocks → ask whether to delete data → remove binary (only if installed by `install.sh`)
-- [ ] `loxx status`: record count, pending embeddings, redaction count, DB size, hook detected in the current shell?
-- [ ] `loxx forget <id | --match pattern>`: delete from all tables, including FTS and vectors
-- [ ] Config file support (location/format per §3, once confirmed)
-- [ ] Package-manager caveat: distro packages must not edit `$HOME`. Decide per package whether to use `/etc/profile.d` or a post-install "run `loxx setup`" message (**decide with the user**).
+- [x] `install.sh` (POSIX sh, repo root): Linux amd64/arm64 → downloads `loxx-linux-<arch>` + `checksums.txt` (curl or wget) → **refuses on SHA-256 mismatch** (nothing installed) → atomic install to `~/.local/bin/loxx` → records `~/.local/state/loxx/installed-binary` → runs `loxx setup`. `LOXX_RELEASE_URL` / `LOXX_BIN_DIR` override. Never edits `PATH`. Tested (`TestInstallScript*`): real install into a temp home, twice (one block), bad checksum, missing asset.
+- [x] `loxx setup` (`internal/setup`): marked block with a `[ -x … ]` guard, only for shells whose rc file exists or that are the login shell; updates the block in place on re-runs; **detects a hand-written hook and skips that file** (it would record everything twice); follows symlinked rc files (dotfile managers) and keeps the file mode; writes atomically. Then imports history once and starts background embedding.
+- [x] `loxx uninstall [--delete-data | --keep-data]`: rc files **byte-identical** to before, including a missing final newline, and a `~/.zshrc` that setup created is deleted again (both recorded in the block's first line); asks about the history (only the loxx files are deleted, never a whole custom directory); removes the binary only if `install.sh` installed it.
+- [x] `loxx status`: version and binary, database path/size, unique commands and live/imported runs, last live command, redactions, pending embeddings (and whether an embed is running), each shell's hook (block or hand-written), and whether this shell has it (`LOXX_HOOK`, set by the `loxx` function).
+- [x] `loxx forget --match TEXT | --last [--yes]`: lists, confirms on the terminal, deletes commands with their runs, vectors and FTS entries using `secure_delete`, an FTS `optimize` and a WAL `TRUNCATE` checkpoint. `TestForgetLeavesNothingOnDisk` searches the raw files; a negative control showed that a plain `DELETE` leaves the text in `history.db-wal`. (No `--id`: ids are never shown anywhere.)
+- [x] Confirmed the model-weights release is a pre-release and GitHub currently has **no** "latest" release, so `releases/latest/download/install.sh` will resolve to loxx's first real release.
+
+**Bug found by the fresh-machine test, fixed:** on a machine with no `~/.bash_history` at the first setup, bash wrote one later with commands already recorded live, and re-running the installer imported them again (double counting). Import now marks a missing default history file as done (`TestSetupOnFreshMachineNeverDoubleCounts`).
 
 **Exit criteria**
-- [ ] Fresh Fedora VM/container: run the installer → new terminal → commands recorded → Ctrl-R works, **with zero other steps**
-- [ ] Running the installer twice causes no duplicate rc blocks
-- [ ] Uninstall leaves the rc files byte-identical to before (diff checked)
+- [x] Fresh Fedora 43 container (`sh tools/installtest/run.sh`, podman): run the installer → new shell → commands recorded with exit codes, embedded in the background → `loxx` search finds them, **with zero other steps** (2026-09-30: PASS).
+- [x] Running the installer twice: exactly one rc block and no re-import (same run).
+- [x] Uninstall leaves `~/.bashrc` byte-identical to Fedora's stock file (sha256 match, same run; also `TestSetupStatusUninstall` for a file without a final newline).
 
 ---
 
@@ -450,7 +443,7 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 
 ## 6. Progress log
 
-**Current phase: Phase 6 (not started)**. Phase 5 is complete: the user commits it first. Before starting, confirm §3 PROPOSED "Config format / location" and answer O3 (install URL / hosting).
+**Current phase: Phase 7 (not started)**. Phase 6 is complete: the user commits it first. Phase 7 must publish assets named per §3 "Installer hosting", and decide distro packages (§3).
 
 | Date | Phase | What happened / evidence |
 |---|---|---|
@@ -461,6 +454,7 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 | 2026-09-27 | Phase 3 ✅ | Hybrid search (`internal/search`): AND keywords + semantic, weighted RRF (kw 0.5, k=60), tuned on 40 questions + 25 fragments (0.55/0.80/0.65 and 1.00/1.00/1.00). run_count boost rejected by measurement; recency/cwd boosts deferred to after Phase 4; filters moved to Phase 5. Targets revised with the user and met (keyword 1–12 ms at 100k; semantic ~0.19 s at 10k). Schema v3 drops `embedded_at`; f16 lookup table (load 105→70 ms). Not committed yet: the user commits. |
 | 2026-09-29 | Phase 4 ✅ | Capture: `loxx record`, `loxx import`, `loxx init bash|zsh` (bash-preexec 0.7.0 vendored; ignorespace preserved; exit hook for commands interrupted by closing the terminal), background embed trigger. Tested in real bash/zsh in a pty (edge cases, 100-command rapid fire, hangup). Overhead bash +3.9 ms / zsh +1.3 ms (target ≤ 10 ms). Real use: 1 day, 41 commands, 0 duplicates; fixed the tmux/hangup loss, the model-tag version string, and a new-database SQLITE_BUSY race. Not committed yet: the user commits. |
 | 2026-09-29 | Phase 5 ✅ | Search panel: typing `loxx` opens an inline Bubbletea v2.0.9 panel (spike: +1.6 MB, ~30 ms to first frame; target ≤ 100 ms); keyword results per keystroke, meaning-based after a 150 ms pause; Tab filters (all/dir-or-repo/session/failed); Enter → zsh pre-filled prompt / bash one ↑ away; never executes. No keyboard shortcut (user: Ctrl-R and candidates are taken by them or by VS Code). Tested in a pty and in real bash/zsh; the user confirmed it works in the VS Code terminal. Not committed yet: the user commits. |
+| 2026-09-30 | Rename + Phase 6 ✅ | Renamed loc → **loxx** everywhere (data folder moved automatically on first run; GitHub repo renamed by the user). Phase 6: `install.sh` (SHA-256-verified, atomic, no PATH edits), `loxx setup` / `uninstall` (byte-identical rc restore, symlink-safe, hand-written hooks detected), `loxx status`, `loxx forget` (secure delete, verified on disk). Fresh Fedora container test passes; it found and fixed a double-import on re-install. Not committed yet: the user commits. |
 
 ---
 

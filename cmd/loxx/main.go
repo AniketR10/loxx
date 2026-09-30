@@ -21,11 +21,15 @@ func commands() []command {
 	return []command{
 		{name: "add", summary: "record a command manually", run: runAdd},
 		{name: "embed", summary: "embed commands for semantic search", run: runEmbed},
+		{name: "forget", summary: "delete commands from your history for good", run: runForget},
 		{name: "import", summary: "import existing bash/zsh history", run: runImport},
 		{name: "init", summary: "print the shell hook that records commands", run: runInit},
 		{name: "panel", summary: "open the search panel (what plain `loxx` does)", run: runPanel},
 		{name: "record", summary: "record a finished command (used by the shell hook)", run: runRecord},
 		{name: "search", summary: "search recorded commands by meaning and keyword", run: runSearch},
+		{name: "setup", summary: "add the hook to your shells and import your history", run: runSetup},
+		{name: "status", summary: "show what loxx has recorded and whether the hook is active", run: runStatus},
+		{name: "uninstall", summary: "remove the hook (and optionally your history and the binary)", run: runUninstall},
 		{name: "version", summary: "print the loxx version", run: runVersion},
 	}
 }
