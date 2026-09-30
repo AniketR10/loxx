@@ -98,7 +98,10 @@ no network calls.
 | Installer hosting | **`install.sh` is a GitHub Release asset**: `https://github.com/AniketR10/loxx/releases/latest/download/install.sh` (user, 2026-09-30; was O3). It is published with each release, so it always matches the binaries it downloads. It works publicly once the repo is public. **Asset naming contract for Phase 7's releases:** `loxx-linux-amd64`, `loxx-linux-arm64` (raw static binaries, no archive) and `checksums.txt` (`sha256sum` format). |
 | Config file | **None in v1** (user, 2026-09-30). With no keybinding there's nothing to configure; env vars cover edge cases (`LOXX_DB_PATH`, `LOXX_BACKGROUND_EMBED`). Add one only when a real setting needs it. |
 | Installer testing | **A local release served to a fresh Fedora podman container** (user, 2026-09-30); the real GitHub download is exercised in Phase 7. Dev-only download approved: the `fedora` container image. |
-| Distro packages vs. rc files | **Decided in Phase 7**, per package (user, 2026-09-30). |
+| Release tooling | **A plain GitHub Actions workflow** (on a `v*` tag), not GoReleaser: we publish only 2 raw binaries, `checksums.txt` and `install.sh` (user accepted Claude's recommendation, 2026-10-01) |
+| Linux architectures | **amd64 + arm64** |
+| Release provenance | **GitHub artifact attestations** (`actions/attest-build-provenance`); users verify with `gh attestation verify`. No cosign/GPG keys to manage (user accepted, 2026-10-01) |
+| Distro packages | **None for v0.1.0**; `install.sh` only. Add packages when real users ask (user accepted, 2026-10-01) |
 | Language policy | **Dev-only tooling may use any language** (Python for model conversion, golden generation, bake-offs). **Code that ships to users stays Go**, because of P1 (fast startup on every prompt), P3/P4 (single static binary, zero setup) and the install-only promise, not out of language preference. (User said the focus is performance and correctness, not language, 2026-09-27) |
 | Inference implementation | **Hand-written pure Go** (user decision, 2026-09-27; hugot rejected). If a transformer wins: BERT forward pass + WordPiece. If model2vec wins: WordPiece + lookup + mean pooling. Weights loaded from `go:embed`. Only extra dependency: `golang.org/x/text` v0.41.0 (BSD-3, needed for Unicode NFD in the tokenizer; v0.42+ requires Go 1.26). |
 | Weight precision | **f16** in the binary, converted to f32 at load (user decision, 2026-09-27; carried over from L12 to L6) |
@@ -108,7 +111,7 @@ no network calls.
 | Database | **SQLite** (not DuckDB) |
 | CLI library | **stdlib `flag`** + a small hand-written subcommand dispatcher. No cobra: keeps `loxx record` lean and the dependency count low. (User asked for a recommendation and accepted it, 2026-09-26) |
 | Directory layout | As listed in Phase 0 (approved 2026-09-26). Directories are created when first needed, not up front. |
-| GitHub repo | **Private** for now: `github.com/AniketR10/loxx` |
+| GitHub repo | **Public** since 2026-10-01 (made public by the user): `github.com/AniketR10/loxx`. History scan right after going public: no private names, local paths, real tokens, eval sets, databases or model weights in any of the 48 commits on any branch; only the author email in commit metadata. |
 | LICENSE file | **The user adds it themselves.** Claude must not create or edit `LICENSE`. |
 | Go version | `go 1.25.0` minimum, `toolchain go1.25.12` (the locally installed version) |
 | SQLite driver | **modernc.org/sqlite** v1.59.0 (pure Go, FTS5), approved 2026-09-27 |
@@ -121,9 +124,6 @@ no network calls.
 ### PROPOSED (confirm before the phase that uses it)
 | Topic | Proposal | Needed by |
 |---|---|---|
-| Linux architectures | amd64 + arm64 | Phase 7 |
-| Release tooling | GoReleaser + GitHub Actions | Phase 7 |
-| Distro packages | AUR, Fedora COPR, others | Phase 7 |
 
 ### OPEN (unknown: must ask)
 | # | Question | Blocks |
@@ -412,16 +412,28 @@ zsh 5.9 turned out to be installed already.
 **Goal:** A public, trustworthy first release.
 
 **Tasks**
-- [ ] GoReleaser: Linux amd64/arm64 static binaries, checksums, (optional) signing: **ask** whether to use cosign or GPG
-- [ ] README: what it is, the privacy guarantees (no network, scrubbing), install, uninstall, how search works, limitations
-- [ ] `SECURITY.md` (how to report a scrubber miss), `CONTRIBUTING.md`, issue templates
-- [ ] Dogfood period: the user runs it daily for a period **the user decides**, and bugs are logged here
-- [ ] Resolve O1 (name collision) before submitting packages
-- [ ] Packages: chosen per §3 PROPOSED, once confirmed
+- [x] `make dist`: static `loxx-linux-amd64` / `loxx-linux-arm64` (version from the tag), `install.sh` and `checksums.txt` in `dist/`, exactly the asset names `install.sh` expects (§3 Installer hosting)
+- [x] Release workflow (`.github/workflows/release.yml`, on a `v*` tag): reuses CI (lint + tests + static check on **native amd64 and arm64** runners) → `make dist` → checks the binary's version equals the tag → build-provenance attestation → GitHub release with the four assets. A tag with a suffix (`v0.1.0-rc1`) becomes a **pre-release** (never "latest") whose notes pin its own files. The publish script was dry-run locally for both kinds of tag. **Not yet run on GitHub** (needs a tag push).
+- [x] README: what it is, privacy guarantees (no network, scrubbing, space-prefixed commands never recorded), install/uninstall, how search works, known limitations (Linux only; bash/zsh; no `go install`; semantic results for gibberish; secrets the scrubber can't recognize)
+- [x] `SECURITY.md` (report scrubber misses privately, never with the real secret), `CONTRIBUTING.md` (build, test, `make model`), issue templates (bug report; secret-miss reports routed to private advisories). GitHub private vulnerability reporting: **enabled** by the user (confirmed via the API, 2026-10-01).
+- [x] Audit P1–P8 (2026-10-01), with evidence:
+  - **P1** never slow the prompt: `loxx record` runs in the background; measured +3.9 ms (bash) / +1.3 ms (zsh) per command (target ≤ 10 ms, Phase 4). Only the exit hook runs synchronously, and only when a shell exits mid-command.
+  - **P2** never store unscrubbed secrets: command text enters the DB through one statement (`INSERT INTO commands` in `store.addTx`), which only takes a `scrub.Command`; its callers (`add`, `record`, `import`) all scrub first. Known, documented exceptions: cwd, hostname, and secrets the scrubber can't recognize.
+  - **P3** no network: no HTTP/TLS/dial/listen in loxx's code (`net` is compiled in only via github.com/google/uuid). **Runtime proof:** in a network namespace with only a downed loopback (a real connection to GitHub failed there), loxx recorded, embedded and searched by meaning normally.
+  - **P4** single static binary: `make check-static` / `make dist` fail otherwise, in CI on both architectures.
+  - **P5** never executes for the user: the only process loxx starts is itself (`loxx embed`); the panel prints, and the shell functions only `print -z` (zsh) or `history -s` (bash). The hooks' `eval`s only define a wrapper function and preserve the user's own EXIT trap.
+  - **P6** fully reversible: uninstall restores rc files byte for byte (tests plus the fresh-Fedora container), removes its state and lock files, and deletes data only on request.
+  - **P7** keyword fallback: `TestSearchFallsBackToKeywords`.
+  - **P8** licenses: all 24 modules in the release binary are MIT or BSD; bash-preexec is MIT; the model is Apache-2.0 (license shipped).
+- [x] `tools/installtest/run.sh` can test a real release (`LOXX_RELEASE_URL=…/releases/download/<tag>`), taking `install.sh` from the release itself
+- [x] arm64: no emulator on the dev machine, so CI now runs the whole suite on GitHub's **native arm64 runners** (`ubuntu-24.04-arm`, free for public repos) on every push and before every release. **Pending: the first CI run.**
+- [ ] Dogfood period: **2–3 weeks** (user, 2026-10-01), the user plus friends testing it. Friends install from a **pre-release** (`v0.1.0-rc1`), since `install.sh` needs a published release. Bugs are logged here.
+- [x] O1 (name collision): resolved by the rename to loxx
+- [x] History scan before/at going public: clean (§3 GitHub repo)
 
 **Exit criteria**
-- [ ] Tagged `v0.1.0` release with binaries + checksums
-- [ ] Install from the release works on a clean machine
+- [ ] Tagged `v0.1.0` release with binaries, checksums, install.sh and attestations
+- [ ] `tools/installtest` passes against the **real** GitHub release URL on a fresh Fedora container
 - [ ] No open P1–P8 violations
 
 ---
@@ -443,7 +455,7 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 
 ## 6. Progress log
 
-**Current phase: Phase 7 (not started)**. Phase 6 is complete: the user commits it first. Phase 7 must publish assets named per §3 "Installer hosting", and decide distro packages (§3).
+**Current phase: Phase 7 (in progress)**
 
 | Date | Phase | What happened / evidence |
 |---|---|---|
