@@ -4,13 +4,18 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call: # the release workflow runs the same checks first
 
 permissions:
   contents: read
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Both architectures loxx ships for, each on native hardware.
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -18,20 +23,14 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      # `make model` (run by lint/test/build) downloads the weights from the
+      # public model release and verifies their SHA-256; the cache avoids
+      # downloading them on every run.
       - name: Cache model weights
-        id: model-cache
         uses: actions/cache@v6
         with:
           path: internal/embed/model/minilm-l6-v2.f16.safetensors
           key: model-${{ hashFiles('Makefile') }}
-      # While the repo is private, release downloads need a token, so fetch
-      # with gh. `make model` (run by lint/test/build) then verifies the
-      # SHA-256. Once the repo is public, `make model` can download by itself.
-      - name: Download model weights
-        if: steps.model-cache.outputs.cache-hit != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release download model-minilm-l6-v2-f16 --pattern minilm-l6-v2.f16.safetensors --dir internal/embed/model
       - name: Install zsh (for the shell hook tests)
         run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends zsh
       - name: Lint
