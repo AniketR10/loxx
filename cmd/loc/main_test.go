@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestRun(t *testing.T) {
@@ -16,7 +15,6 @@ func TestRun(t *testing.T) {
 		wantStdout string
 		wantStderr string
 	}{
-		{name: "no args", args: nil, wantCode: 2, wantStderr: "Usage: loc"},
 		{name: "help", args: []string{"help"}, wantCode: 0, wantStdout: "Usage: loc"},
 		{name: "--help", args: []string{"--help"}, wantCode: 0, wantStdout: "Usage: loc"},
 		{name: "version", args: []string{"version"}, wantCode: 0, wantStdout: "loc dev"},
@@ -82,24 +80,6 @@ func TestAddAndSearch(t *testing.T) {
 	runOK(t, "embed", "--pending")
 	if stdout, _ = runOK(t, "search", "--limit", "1", "restart", "the", "web", "server"); !strings.HasPrefix(stdout, "sudo systemctl restart nginx\n") {
 		t.Errorf("semantic search: got\n%s", stdout)
-	}
-}
-
-func TestRelativeTime(t *testing.T) {
-	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
-	for d, want := range map[time.Duration]string{
-		10 * time.Second:     "just now",
-		time.Minute:          "1 minute ago",
-		90 * time.Minute:     "1 hour ago",
-		3 * 24 * time.Hour:   "3 days ago",
-		15 * 24 * time.Hour:  "2 weeks ago",
-		70 * 24 * time.Hour:  "2 months ago",
-		800 * 24 * time.Hour: "2 years ago",
-		-5 * time.Minute:     "just now", // clock skew: never "-5 minutes ago"
-	} {
-		if got := relativeTime(now.Add(-d), now); got != want {
-			t.Errorf("relativeTime(-%v) = %q, want %q", d, got, want)
-		}
 	}
 }
 

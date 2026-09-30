@@ -89,7 +89,7 @@ func TestSearchHybrid(t *testing.T) {
 		// Exact token: keyword search helps.
 		"pgdata": "docker run -d -v pgdata:/var/lib/postgresql/data postgres:16",
 	} {
-		results, err := s.Search(ctx, query, 3, DefaultParams)
+		results, err := s.Search(ctx, query, 3, DefaultParams, store.Filter{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -104,7 +104,7 @@ func TestSearchHybrid(t *testing.T) {
 func TestSearchFallsBackToKeywords(t *testing.T) {
 	ctx := context.Background()
 	s := New(ctx, history(t, false, cmds...))
-	results, err := s.Search(ctx, "nginx", 3, DefaultParams)
+	results, err := s.Search(ctx, "nginx", 3, DefaultParams, store.Filter{})
 	if err != nil {
 		t.Fatal(err)
 	}

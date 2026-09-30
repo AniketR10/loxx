@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/AniketR10/loc/internal/format"
 	"github.com/AniketR10/loc/internal/search"
 	"github.com/AniketR10/loc/internal/store"
 )
@@ -47,7 +47,7 @@ func runSearch(args []string, stdout, stderr io.Writer) int {
 	defer db.Close()
 
 	s := search.New(ctx, db)
-	results, err := s.Search(ctx, query, *limit, search.DefaultParams)
+	results, err := s.Search(ctx, query, *limit, search.DefaultParams, store.Filter{})
 	if err != nil {
 		fmt.Fprintln(stderr, "loc search:", err)
 		return 1
@@ -63,71 +63,7 @@ func runSearch(args []string, stdout, stderr io.Writer) int {
 	now := time.Now()
 	for _, r := range results {
 		fmt.Fprintln(stdout, r.Text)
-		fmt.Fprintf(stdout, "    %s\n", details(r, home, now))
+		fmt.Fprintf(stdout, "    %s\n", format.Details(r, home, now))
 	}
 	return 0
-}
-
-// details formats a result's metadata line, e.g.
-// "~/work/api · 3 weeks ago · exit 0 · 4 runs".
-func details(r store.Result, home string, now time.Time) string {
-	var parts []string
-	if r.Cwd != "" {
-		parts = append(parts, tildePath(r.Cwd, home))
-	}
-	if r.LastRun != nil {
-		parts = append(parts, relativeTime(*r.LastRun, now))
-	} else {
-		parts = append(parts, "imported") // no run time is known (user decision, ROADMAP §3)
-	}
-	if r.ExitCode != nil {
-		parts = append(parts, fmt.Sprintf("exit %d", *r.ExitCode))
-	}
-	if r.RunCount == 1 {
-		parts = append(parts, "1 run")
-	} else {
-		parts = append(parts, fmt.Sprintf("%d runs", r.RunCount))
-	}
-	return strings.Join(parts, " · ")
-}
-
-// relativeTime describes t relative to now in the largest whole unit, e.g.
-// "just now", "5 minutes ago", "3 weeks ago".
-func relativeTime(t, now time.Time) string {
-	d := now.Sub(t)
-	if d < time.Minute {
-		return "just now"
-	}
-	for _, u := range []struct {
-		size time.Duration
-		name string
-	}{
-		{365 * 24 * time.Hour, "year"},
-		{30 * 24 * time.Hour, "month"},
-		{7 * 24 * time.Hour, "week"},
-		{24 * time.Hour, "day"},
-		{time.Hour, "hour"},
-		{time.Minute, "minute"},
-	} {
-		if n := int(d / u.size); n >= 1 {
-			if n == 1 {
-				return "1 " + u.name + " ago"
-			}
-			return fmt.Sprintf("%d %ss ago", n, u.name)
-		}
-	}
-	return "just now"
-}
-
-func tildePath(path, home string) string {
-	if home == "" {
-		return path
-	}
-	if path == home {
-		return "~"
-	}
-	if rel, ok := strings.CutPrefix(path, home+string(filepath.Separator)); ok {
-		return "~/" + rel
-	}
-	return path
 }

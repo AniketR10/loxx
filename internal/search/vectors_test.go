@@ -54,7 +54,7 @@ func TestTopKByDotMatchesSort(t *testing.T) {
 	})
 
 	for _, k := range []int{1, 5, 50, n, n + 10} {
-		got := topKByDot(q, ids, vectors, dims, k)
+		got := topKByDot(q, ids, vectors, dims, k, nil)
 		want := all[:min(k, n)]
 		if len(got) != len(want) {
 			t.Fatalf("k=%d: %d results, want %d", k, len(got), len(want))
@@ -66,7 +66,7 @@ func TestTopKByDotMatchesSort(t *testing.T) {
 			}
 		}
 	}
-	if got := topKByDot(q, nil, nil, dims, 5); got != nil {
+	if got := topKByDot(q, nil, nil, dims, 5, nil); got != nil {
 		t.Errorf("empty index: got %v", got)
 	}
 }
@@ -82,7 +82,7 @@ func BenchmarkTopKByDot(b *testing.B) {
 		}
 		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
 			for b.Loop() {
-				topKByDot(q, ids, vectors, dims, 50)
+				topKByDot(q, ids, vectors, dims, 50, nil)
 			}
 		})
 	}

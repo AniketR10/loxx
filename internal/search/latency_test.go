@@ -26,7 +26,7 @@ func BenchmarkKeywordLatency(b *testing.B) {
 				if err != nil {
 					b.Fatal(err)
 				}
-				ids, err := db.KeywordIDs(ctx, q, DefaultParams.KeywordMode, candidates)
+				ids, err := db.KeywordIDs(ctx, q, DefaultParams.KeywordMode, store.Filter{}, candidates)
 				if err != nil {
 					b.Fatal(err)
 				}
