@@ -1,0 +1,70 @@
+name: Release
+
+# Pushing a tag like v0.1.0 publishes a release. A tag with a suffix, like
+# v0.1.0-rc1, is published as a pre-release: it never becomes "latest", so
+# the install URL keeps pointing at the last real release.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release
+      id-token: write # sign the build-provenance attestation
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the version comes from `git describe`
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Build release assets
+        run: make dist
+      - name: Check the version matches the tag
+        run: |
+          got=$(./dist/loxx-linux-amd64 version)
+          [ "$got" = "loxx $GITHUB_REF_NAME" ] || { echo "binary says '$got', tag is $GITHUB_REF_NAME"; exit 1; }
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            dist/loxx-linux-amd64
+            dist/loxx-linux-arm64
+            dist/install.sh
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          base=https://github.com/$GITHUB_REPOSITORY/releases
+          prerelease= install="curl -fsSL $base/latest/download/install.sh | sh"
+          case $GITHUB_REF_NAME in
+            (*-*) # a pre-release is never "latest", so pin its own files
+              prerelease=--prerelease
+              install="curl -fsSL $base/download/$GITHUB_REF_NAME/install.sh | LOXX_RELEASE_URL=$base/download/$GITHUB_REF_NAME sh" ;;
+          esac
+          cat >notes.md <<EOF
+          Install (Linux, bash or zsh):
+
+          \`\`\`
+          $install
+          \`\`\`
+
+          Every file here has a build-provenance attestation. To check that a
+          download was built by this repository's release workflow:
+
+          \`\`\`
+          gh attestation verify loxx-linux-amd64 --repo $GITHUB_REPOSITORY
+          \`\`\`
+          EOF
+          gh release create "$GITHUB_REF_NAME" dist/* $prerelease --verify-tag \
+            --title "loxx $GITHUB_REF_NAME" --notes-file notes.md --generate-notes

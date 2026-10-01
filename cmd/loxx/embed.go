@@ -28,8 +28,9 @@ func runEmbed(args []string, stdout, stderr io.Writer) int {
 	fs.Usage = func() {
 		fmt.Fprintln(stderr, "Usage: loxx embed --pending [--workers N] [--wait DURATION]")
 		fmt.Fprintln(stderr)
-		fmt.Fprintln(stderr, "Embeds every command that has no vector from the built-in model yet.")
-		fmt.Fprintln(stderr, "Only one embed runs at a time; a second one exits immediately.")
+		fmt.Fprintln(stderr, "Prepares saved commands for search by meaning. loxx does this in the")
+		fmt.Fprintln(stderr, "background after each command; run it by hand only if `loxx status` shows commands waiting.")
+		fmt.Fprintln(stderr, "Only one runs at a time; starting a second one does nothing.")
 		fmt.Fprintln(stderr)
 		fs.PrintDefaults()
 	}

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: loxx saved a secret instead of hiding it
+    url: https://github.com/AniketR10/loxx/security/advisories/new
+    about: Report it privately, with a made-up secret of the same shape. Never post the real one.

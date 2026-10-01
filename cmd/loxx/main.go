@@ -19,17 +19,17 @@ type command struct {
 
 func commands() []command {
 	return []command{
-		{name: "add", summary: "record a command manually", run: runAdd},
-		{name: "embed", summary: "embed commands for semantic search", run: runEmbed},
+		{name: "add", summary: "save a command by hand", run: runAdd},
+		{name: "embed", summary: "prepare saved commands for search by meaning", run: runEmbed},
 		{name: "forget", summary: "delete commands from your history for good", run: runForget},
-		{name: "import", summary: "import existing bash/zsh history", run: runImport},
-		{name: "init", summary: "print the shell hook that records commands", run: runInit},
-		{name: "panel", summary: "open the search panel (what plain `loxx` does)", run: runPanel},
-		{name: "record", summary: "record a finished command (used by the shell hook)", run: runRecord},
-		{name: "search", summary: "search recorded commands by meaning and keyword", run: runSearch},
-		{name: "setup", summary: "add the hook to your shells and import your history", run: runSetup},
-		{name: "status", summary: "show what loxx has recorded and whether the hook is active", run: runStatus},
-		{name: "uninstall", summary: "remove the hook (and optionally your history and the binary)", run: runUninstall},
+		{name: "import", summary: "load your existing bash/zsh history", run: runImport},
+		{name: "init", summary: "print the shell code that saves your commands", run: runInit},
+		{name: "panel", summary: "open the search list (same as plain `loxx`)", run: runPanel},
+		{name: "record", summary: "save a finished command (used by the shell hook)", run: runRecord},
+		{name: "search", summary: "search saved commands and print the matches", run: runSearch},
+		{name: "setup", summary: "add loxx to your shell settings and load your history", run: runSetup},
+		{name: "status", summary: "show what is saved and whether loxx is working", run: runStatus},
+		{name: "uninstall", summary: "remove loxx (and, if you want, your saved history)", run: runUninstall},
 		{name: "version", summary: "print the loxx version", run: runVersion},
 	}
 }
@@ -59,7 +59,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "Usage: loxx                       open the search panel")
+	fmt.Fprintln(w, "Usage: loxx                       open the search list")
 	fmt.Fprintln(w, "       loxx <command> [arguments]")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Commands:")
