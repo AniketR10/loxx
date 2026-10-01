@@ -3,10 +3,11 @@
 #
 #   curl -fsSL https://github.com/AniketR10/loxx/releases/latest/download/install.sh | sh
 #
-# Downloads the loxx binary for this machine, checks its SHA-256 against the
-# release's checksums.txt, installs it to ~/.local/bin/loxx and runs
-# `loxx setup`, which adds the hook to your shell's rc file and imports your
-# existing history. Needs no root. `loxx uninstall` undoes all of it.
+# Downloads the loxx binary for this machine (Linux or macOS), checks its
+# SHA-256 against the release's checksums.txt, installs it to
+# ~/.local/bin/loxx and runs `loxx setup`, which adds the hook to your shell's
+# rc file and imports your existing history. Needs no root. `loxx uninstall`
+# undoes all of it.
 #
 # Environment:
 #   LOXX_RELEASE_URL  where to download from (default: the latest GitHub release)
@@ -23,13 +24,17 @@ fail() {
   exit 1
 }
 
-[ "$(uname -s)" = Linux ] || fail "loxx supports Linux only for now (this is $(uname -s))"
+case $(uname -s) in
+  (Linux) os=linux ;;
+  (Darwin) os=darwin ;;
+  (*) fail "loxx supports Linux and macOS only (this is $(uname -s))" ;;
+esac
 case $(uname -m) in
   (x86_64 | amd64) arch=amd64 ;;
   (aarch64 | arm64) arch=arm64 ;;
   (*) fail "unsupported CPU architecture: $(uname -m)" ;;
 esac
-asset=loxx-linux-$arch
+asset=loxx-$os-$arch
 
 if command -v curl >/dev/null 2>&1; then
   download() { curl -fsSL --retry 3 -o "$2" "$1"; }
@@ -38,7 +43,14 @@ elif command -v wget >/dev/null 2>&1; then
 else
   fail "needs curl or wget"
 fi
-command -v sha256sum >/dev/null 2>&1 || fail "needs sha256sum (from coreutils)"
+# Linux has sha256sum; macOS has shasum.
+if command -v sha256sum >/dev/null 2>&1; then
+  sha256() { sha256sum "$1" | cut -d ' ' -f 1; }
+elif command -v shasum >/dev/null 2>&1; then
+  sha256() { shasum -a 256 "$1" | cut -d ' ' -f 1; }
+else
+  fail "needs sha256sum or shasum"
+fi
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT INT TERM
@@ -50,7 +62,7 @@ download "$release_url/checksums.txt" "$tmp/checksums.txt" || fail "could not do
 # sha256sum writes "<hash>  <file>" (or "<hash> *<file>" in binary mode).
 expected=$(awk -v f="$asset" '$2 == f || $2 == "*" f { print $1; exit }' "$tmp/checksums.txt")
 [ -n "$expected" ] || fail "checksums.txt has no entry for $asset"
-actual=$(sha256sum "$tmp/$asset" | cut -d ' ' -f 1)
+actual=$(sha256 "$tmp/$asset")
 [ "$actual" = "$expected" ] || fail "checksum mismatch for $asset (expected $expected, got $actual); nothing was installed"
 
 mkdir -p "$bin_dir" "$state_dir"
