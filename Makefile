@@ -6,8 +6,10 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 
 export CGO_ENABLED := 0
 
-# Linux has sha256sum; macOS has shasum instead (same output format).
+# Linux has sha256sum; older macOS only has shasum. Both print "<hash>  <file>",
+# and only that is used: macOS's own sha256sum lacks GNU's `-c --status`.
 SHA256SUM := $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo 'shasum -a 256')
+sha256 = $$($(SHA256SUM) $(1) | cut -d ' ' -f 1)
 
 # The embedding model's weights are compiled into the binary but not stored in
 # git: `make model` downloads them from a GitHub Release and verifies the
@@ -20,12 +22,12 @@ MODEL_URL := https://github.com/AniketR10/loxx/releases/download/model-minilm-l6
 .PHONY: model build dist test lint bench fuzz check-static clean
 
 model:
-	@if [ -f $(MODEL_FILE) ] && echo "$(MODEL_SHA256)  $(MODEL_FILE)" | $(SHA256SUM) -c --status; then \
+	@if [ -f $(MODEL_FILE) ] && [ "$(call sha256,$(MODEL_FILE))" = $(MODEL_SHA256) ]; then \
 		echo 'model: present, SHA-256 verified'; \
 	else \
 		echo 'model: downloading $(MODEL_URL)'; \
 		curl -fsSL --retry 3 -o $(MODEL_FILE).tmp $(MODEL_URL) \
-			&& echo "$(MODEL_SHA256)  $(MODEL_FILE).tmp" | $(SHA256SUM) -c --status \
+			&& [ "$(call sha256,$(MODEL_FILE).tmp)" = $(MODEL_SHA256) ] \
 			|| { rm -f $(MODEL_FILE).tmp; echo 'model: download failed or SHA-256 mismatch'; exit 1; }; \
 		mv $(MODEL_FILE).tmp $(MODEL_FILE); \
 		echo 'model: downloaded, SHA-256 verified'; \

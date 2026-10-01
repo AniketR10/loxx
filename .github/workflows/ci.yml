@@ -12,6 +12,8 @@ permissions:
 jobs:
   ci:
     strategy:
+      # Let every system finish, so one failure doesn't hide another's.
+      fail-fast: false
       matrix:
         # Every system and architecture loxx ships for, each on native
         # hardware: Linux amd64/arm64, macOS on Apple chips and on Intel.

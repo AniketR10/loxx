@@ -241,7 +241,12 @@ func startShell(t *testing.T, shell string, args []string) *session {
 	if _, err := exec.LookPath(shell); err != nil {
 		t.Skipf("%s not installed", shell)
 	}
-	dir := t.TempDir()
+	// The shell records its real working directory; on macOS the temporary
+	// directory is behind a symlink (/var → /private/var).
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	s := startPTY(t, dir, filepath.Join(dir, "history.db"), nil, shell, args...)
 	time.Sleep(500 * time.Millisecond) // let the shell start
 	return s
