@@ -12,7 +12,7 @@ Type `loxx`, then describe what you want, like "restart the web server" or
 
 ## Install
 
-You need Linux and bash or zsh. Run:
+You need Linux with bash or zsh, or a Mac with zsh (the Mac default). Run:
 
 ```
 curl -fsSL https://github.com/AniketR10/loxx/releases/latest/download/install.sh | sh
@@ -66,7 +66,7 @@ start the command with a space, or run `loxx forget --last` afterwards.
 | Where | What |
 |---|---|
 | `~/.local/bin/loxx` | The program (one file). |
-| `~/.bashrc` and/or `~/.zshrc` | One marked block, added by the installer (see below). |
+| `~/.bashrc` and/or `~/.zshrc` | One marked block, added by the installer (see below). On a Mac, only `~/.zshrc`. |
 | `~/.local/share/loxx/` | Your saved commands (`history.db`, an SQLite database). |
 | `~/.local/state/loxx/` | A note that the installer put the program there, so uninstall can remove it. |
 
@@ -133,9 +133,17 @@ CLI:
 gh attestation verify loxx-linux-amd64 --repo AniketR10/loxx
 ```
 
+Use the name of the file you downloaded: `loxx-linux-amd64`, `loxx-linux-arm64`,
+`loxx-darwin-arm64` (Mac with an Apple chip) or `loxx-darwin-amd64` (Intel Mac).
+
 ## Good to know
 
-- Works on Linux only, with bash or zsh.
+- Works on Linux with bash or zsh, and on macOS with zsh. Not on Windows.
+- On a Mac, bash is not supported: the bash that comes with macOS is too old.
+  zsh has been the Mac default since 2019.
+- On a Mac, `~/.local/bin` is usually not in your `PATH`. Typing `loxx` still
+  works in every new terminal, because the hook adds it. Anywhere else, use
+  `~/.local/bin/loxx`.
 - Your history stays on the computer where you ran the commands.
 - When you search by meaning, loxx always shows the closest matches, even if
   none of them is a good match.

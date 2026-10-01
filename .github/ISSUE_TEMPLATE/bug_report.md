@@ -12,7 +12,7 @@ labels: bug
 
 **Your setup**
 - `loxx version`:
-- Linux and version:
+- System and version (e.g. Fedora 43, macOS 15):
 - Shell (bash or zsh) and version:
 - Terminal app (and tmux, if you use it):
 
