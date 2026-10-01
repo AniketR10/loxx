@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux || darwin
 
 package main
 
@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -19,15 +20,18 @@ import (
 	"unsafe"
 )
 
-// shells are the interactive shells the hooks support, started without any
-// rc files so only the loxx hook is loaded.
-var shells = []struct {
+type testShell struct {
 	name string
 	args []string
-}{
+}
+
+// shells are the interactive shells the hooks support on this system (see
+// setupShells: zsh only on macOS), started without any rc files so only the
+// loxx hook is loaded.
+var shells = slices.DeleteFunc([]testShell{
 	{"bash", []string{"--norc", "--noprofile", "-i"}},
 	{"zsh", []string{"-f", "-i"}},
-}
+}, func(sh testShell) bool { return !slices.Contains(setupShells(), sh.name) })
 
 // ctrlC typed into a session interrupts the running command.
 const ctrlC = "\x03"
@@ -250,27 +254,15 @@ func startPTY(t *testing.T, dir, dbPath string, stdout io.Writer, name string, a
 	t.Helper()
 	s := &session{t: t, dir: dir, dbPath: dbPath, copied: make(chan struct{})}
 
-	master, err := os.OpenFile("/dev/ptmx", os.O_RDWR, 0)
+	master, tty, err := openPTY()
 	if err != nil {
 		t.Fatal(err)
 	}
 	s.master = master
-	var unlock int32
-	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, master.Fd(), syscall.TIOCSPTLCK, uintptr(unsafe.Pointer(&unlock))); errno != 0 {
-		t.Fatalf("unlocking pty: %v", errno)
-	}
 	// A real terminal has a size; with 0x0 a TUI has nowhere to draw.
 	size := [4]uint16{24, 80, 0, 0} // rows, cols, xpixel, ypixel
-	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, master.Fd(), syscall.TIOCSWINSZ, uintptr(unsafe.Pointer(&size))); errno != 0 {
-		t.Fatalf("sizing pty: %v", errno)
-	}
-	var n uint32
-	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, master.Fd(), syscall.TIOCGPTN, uintptr(unsafe.Pointer(&n))); errno != 0 {
-		t.Fatalf("getting pty number: %v", errno)
-	}
-	tty, err := os.OpenFile(fmt.Sprintf("/dev/pts/%d", n), os.O_RDWR|syscall.O_NOCTTY, 0)
-	if err != nil {
-		t.Fatal(err)
+	if err := ioctl(master, syscall.TIOCSWINSZ, uintptr(unsafe.Pointer(&size))); err != nil {
+		t.Fatalf("sizing pty: %v", err)
 	}
 
 	var ctx context.Context
@@ -304,6 +296,13 @@ func startPTY(t *testing.T, dir, dbPath string, stdout io.Writer, name string, a
 		master.Close()
 	})
 	return s
+}
+
+func ioctl(f *os.File, req, arg uintptr) error {
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, f.Fd(), req, arg); errno != 0 {
+		return errno
+	}
+	return nil
 }
 
 // typeLines types each line (ctrlC is sent as a keystroke), pausing between
