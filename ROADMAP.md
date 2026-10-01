@@ -413,7 +413,7 @@ zsh 5.9 turned out to be installed already.
 
 **Tasks**
 - [x] `make dist`: static `loxx-linux-amd64` / `loxx-linux-arm64` (version from the tag), `install.sh` and `checksums.txt` in `dist/`, exactly the asset names `install.sh` expects (§3 Installer hosting)
-- [x] Release workflow (`.github/workflows/release.yml`, on a `v*` tag): reuses CI (lint + tests + static check on **native amd64 and arm64** runners) → `make dist` → checks the binary's version equals the tag → build-provenance attestation → GitHub release with the four assets. A tag with a suffix (`v0.1.0-rc1`) becomes a **pre-release** (never "latest") whose notes pin its own files. The publish script was dry-run locally for both kinds of tag. **Not yet run on GitHub** (needs a tag push).
+- [x] Release workflow (`.github/workflows/release.yml`, on a `v*` tag): reuses CI (lint + tests + static check on **native amd64 and arm64** runners) → `make dist` → checks the binary's version equals the tag → build-provenance attestation → GitHub release with the four assets. A tag with a suffix (`v0.1.0-rc1`) becomes a **pre-release** (never "latest") whose notes pin its own files. The publish script was dry-run locally for both kinds of tag. **First real run: `v0.1.0-rc1` (2026-10-01), success**: checks passed on amd64 and native arm64, all four assets published as a pre-release, checksums match, the binary reports `loxx v0.1.0-rc1`, and `gh attestation verify` passes for both binaries and install.sh.
 - [x] README: what it is, privacy guarantees (no network, scrubbing, space-prefixed commands never recorded), install/uninstall, how search works, known limitations (Linux only; bash/zsh; no `go install`; semantic results for gibberish; secrets the scrubber can't recognize)
 - [x] `SECURITY.md` (report scrubber misses privately, never with the real secret), `CONTRIBUTING.md` (build, test, `make model`), issue templates (bug report; secret-miss reports routed to private advisories). GitHub private vulnerability reporting: **enabled** by the user (confirmed via the API, 2026-10-01).
 - [x] Audit P1–P8 (2026-10-01), with evidence:
@@ -426,15 +426,15 @@ zsh 5.9 turned out to be installed already.
   - **P7** keyword fallback: `TestSearchFallsBackToKeywords`.
   - **P8** licenses: all 24 modules in the release binary are MIT or BSD; bash-preexec is MIT; the model is Apache-2.0 (license shipped).
 - [x] `tools/installtest/run.sh` can test a real release (`LOXX_RELEASE_URL=…/releases/download/<tag>`), taking `install.sh` from the release itself
-- [x] arm64: no emulator on the dev machine, so CI now runs the whole suite on GitHub's **native arm64 runners** (`ubuntu-24.04-arm`, free for public repos) on every push and before every release. **Pending: the first CI run.**
+- [x] arm64: no emulator on the dev machine, so CI now runs the whole suite on GitHub's **native arm64 runners** (`ubuntu-24.04-arm`, free for public repos) on every push and before every release. First run passed (PR #5 and the `v0.1.0-rc1` release run).
 - [ ] Dogfood period: **2–3 weeks** (user, 2026-10-01), the user plus friends testing it. Friends install from a **pre-release** (`v0.1.0-rc1`), since `install.sh` needs a published release. Bugs are logged here.
 - [x] O1 (name collision): resolved by the rename to loxx
 - [x] History scan before/at going public: clean (§3 GitHub repo)
 
 **Exit criteria**
-- [ ] Tagged `v0.1.0` release with binaries, checksums, install.sh and attestations
-- [ ] `tools/installtest` passes against the **real** GitHub release URL on a fresh Fedora container
-- [ ] No open P1–P8 violations
+- [ ] Tagged `v0.1.0` release with binaries, checksums, install.sh and attestations (**after the 2–3 week trial**; the pipeline is proven by `v0.1.0-rc1`)
+- [x] `tools/installtest` passes against the **real** GitHub release URL on a fresh Fedora container (`v0.1.0-rc1`, 2026-10-01: install → record → re-install → uninstall, PASS)
+- [x] No open P1–P8 violations (audit above, 2026-10-01)
 
 ---
 
@@ -455,7 +455,7 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 
 ## 6. Progress log
 
-**Current phase: Phase 7 (in progress)**
+**Current phase: Phase 7: trial period** (2–3 weeks from 2026-10-01, the user plus friends on `v0.1.0-rc1`). Then fix what they find and tag `v0.1.0`.
 
 | Date | Phase | What happened / evidence |
 |---|---|---|
@@ -467,6 +467,7 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 | 2026-09-29 | Phase 4 ✅ | Capture: `loxx record`, `loxx import`, `loxx init bash|zsh` (bash-preexec 0.7.0 vendored; ignorespace preserved; exit hook for commands interrupted by closing the terminal), background embed trigger. Tested in real bash/zsh in a pty (edge cases, 100-command rapid fire, hangup). Overhead bash +3.9 ms / zsh +1.3 ms (target ≤ 10 ms). Real use: 1 day, 41 commands, 0 duplicates; fixed the tmux/hangup loss, the model-tag version string, and a new-database SQLITE_BUSY race. Not committed yet: the user commits. |
 | 2026-09-29 | Phase 5 ✅ | Search panel: typing `loxx` opens an inline Bubbletea v2.0.9 panel (spike: +1.6 MB, ~30 ms to first frame; target ≤ 100 ms); keyword results per keystroke, meaning-based after a 150 ms pause; Tab filters (all/dir-or-repo/session/failed); Enter → zsh pre-filled prompt / bash one ↑ away; never executes. No keyboard shortcut (user: Ctrl-R and candidates are taken by them or by VS Code). Tested in a pty and in real bash/zsh; the user confirmed it works in the VS Code terminal. Not committed yet: the user commits. |
 | 2026-09-30 | Rename + Phase 6 ✅ | Renamed loc → **loxx** everywhere (data folder moved automatically on first run; GitHub repo renamed by the user). Phase 6: `install.sh` (SHA-256-verified, atomic, no PATH edits), `loxx setup` / `uninstall` (byte-identical rc restore, symlink-safe, hand-written hooks detected), `loxx status`, `loxx forget` (secure delete, verified on disk). Fresh Fedora container test passes; it found and fixed a double-import on re-install. Not committed yet: the user commits. |
+| 2026-10-01 | Phase 7: rc1 released | Repo public (history scan clean). Release workflow + `make dist`, CI on native amd64 and arm64, plain-language README/SECURITY/CONTRIBUTING, P1–P8 audit (P3 proven in a no-network namespace). `v0.1.0-rc1` published with verified checksums and attestations; the fresh-Fedora install check passes against the real download. Trial period started. Not committed yet: the user commits. |
 
 ---
 
