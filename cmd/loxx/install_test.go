@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux || darwin
 
 package main
 
@@ -14,12 +14,17 @@ import (
 	"testing"
 )
 
+// loginShell is the login shell of the fresh account install.sh runs in:
+// bash on Linux, and zsh on macOS (its default, and the only shell loxx sets
+// up there).
+var loginShell = map[string]string{"linux": "bash", "darwin": "zsh"}[runtime.GOOS]
+
 // release builds a local "GitHub release" directory, as install.sh expects
-// one: loxx-linux-<arch> and checksums.txt.
+// one: loxx-<os>-<arch> and checksums.txt.
 func release(t *testing.T, bin string, corrupt bool) string {
 	t.Helper()
 	dir := t.TempDir()
-	asset := "loxx-linux-" + runtime.GOARCH
+	asset := "loxx-" + runtime.GOOS + "-" + runtime.GOARCH
 	b, err := os.ReadFile(bin)
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +47,7 @@ func runInstaller(t *testing.T, home, releaseDir string) (string, error) {
 	cmd.Env = []string{
 		"PATH=" + os.Getenv("PATH"),
 		"HOME=" + home,
-		"SHELL=/bin/bash",
+		"SHELL=/bin/" + loginShell,
 		"LOXX_RELEASE_URL=file://" + releaseDir,
 		"LOXX_BACKGROUND_EMBED=0",
 	}
@@ -54,10 +59,10 @@ func TestInstallScript(t *testing.T) {
 	bin := buildLoc(t)
 	rel := release(t, bin, false)
 	home := t.TempDir()
-	bashrc := filepath.Join(home, ".bashrc")
-	original := "# .bashrc\nexport EDITOR=vim\n"
-	write(t, bashrc, original)
-	write(t, filepath.Join(home, ".bash_history"), "git status\n")
+	rc := filepath.Join(home, "."+loginShell+"rc")
+	original := "# my shell settings\nexport EDITOR=vim\n"
+	write(t, rc, original)
+	write(t, filepath.Join(home, "."+loginShell+"_history"), "git status\n")
 
 	out, err := runInstaller(t, home, rel)
 	if err != nil {
@@ -73,15 +78,15 @@ func TestInstallScript(t *testing.T) {
 	if got := read(t, filepath.Join(home, ".local", "state", "loxx", "installed-binary")); strings.TrimSpace(got) != installed {
 		t.Errorf("installed-binary marker = %q", got)
 	}
-	if !strings.Contains(read(t, bashrc), "'"+installed+"' init bash") || !strings.Contains(out, "imported 1 command(s)") {
-		t.Errorf("setup did not run as part of the install:\n%s\n~/.bashrc:\n%s", out, read(t, bashrc))
+	if !strings.Contains(read(t, rc), "'"+installed+"' init "+loginShell) || !strings.Contains(out, "imported 1 command(s)") {
+		t.Errorf("setup did not run as part of the install:\n%s\n%s:\n%s", out, rc, read(t, rc))
 	}
 
 	// Installing twice must not add a second block.
 	if out, err := runInstaller(t, home, rel); err != nil {
 		t.Fatalf("second install.sh: %v\n%s", err, out)
 	}
-	if n := strings.Count(read(t, bashrc), "# >>> loxx >>>"); n != 1 {
+	if n := strings.Count(read(t, rc), "# >>> loxx >>>"); n != 1 {
 		t.Errorf("%d loxx blocks after installing twice, want 1", n)
 	}
 
@@ -91,8 +96,8 @@ func TestInstallScript(t *testing.T) {
 	if out, err := un.CombinedOutput(); err != nil {
 		t.Fatalf("uninstall: %v\n%s", err, out)
 	}
-	if got := read(t, bashrc); got != original {
-		t.Errorf("~/.bashrc after uninstall:\n got %q\nwant %q", got, original)
+	if got := read(t, rc); got != original {
+		t.Errorf("%s after uninstall:\n got %q\nwant %q", rc, got, original)
 	}
 	if _, err := os.Stat(installed); !errors.Is(err, os.ErrNotExist) {
 		t.Error("uninstall left the installed binary")

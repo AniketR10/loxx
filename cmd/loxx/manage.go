@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -21,9 +22,22 @@ import (
 // supportedShells are the shells loxx integrates with, in the order they're handled.
 var supportedShells = []string{"bash", "zsh"}
 
+// goos is runtime.GOOS; tests change it to check another system's behaviour.
+var goos = runtime.GOOS
+
+// setupShells are the shells `loxx setup` adds the hook for on this system.
+// macOS gets only zsh, its default shell: the bash it ships (3.2) is older
+// than the hook needs (4.4).
+func setupShells() []string {
+	if goos == "darwin" {
+		return []string{"zsh"}
+	}
+	return supportedShells
+}
+
 func runSetup(args []string, stdout, stderr io.Writer) int {
 	fs := newFlags("setup", "loxx setup [--no-import]",
-		"Adds the loxx hook to ~/.bashrc and ~/.zshrc (each only if that file exists or it is\nyour login shell), then imports your existing history once. Safe to run again.", stderr)
+		"Adds the loxx hook to ~/.bashrc and ~/.zshrc (each only if that file exists or it is\nyour login shell; on macOS only ~/.zshrc), then imports your existing history once.\nSafe to run again.", stderr)
 	noImport := fs.Bool("no-import", false, "don't import existing shell history")
 	if code, ok := parse(fs, args); !ok {
 		return code
@@ -39,9 +53,14 @@ func runSetup(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	login := filepath.Base(os.Getenv("SHELL"))
+	if goos == "darwin" && login == "bash" {
+		fmt.Fprintf(stderr, "loxx: on macOS, loxx works in zsh only (the bash that comes with macOS is too old).\n"+
+			"      zsh is the macOS default: switch with `chsh -s /bin/zsh`, open a new terminal\n"+
+			"      and run `%s setup` again.\n", format.TildePath(self, home))
+	}
 
 	configured := 0
-	for _, sh := range supportedShells {
+	for _, sh := range setupShells() {
 		rc, _ := setup.RCFile(sh, home)
 		if _, err := os.Stat(rc); err != nil && login != sh {
 			continue // this shell isn't in use
@@ -64,7 +83,11 @@ func runSetup(args []string, stdout, stderr io.Writer) int {
 		configured++
 	}
 	if configured == 0 {
-		fmt.Fprintln(stderr, "loxx setup: found neither ~/.bashrc nor ~/.zshrc, and your login shell is neither bash nor zsh")
+		if goos == "darwin" {
+			fmt.Fprintln(stderr, "loxx setup: found no ~/.zshrc, and your login shell is not zsh")
+		} else {
+			fmt.Fprintln(stderr, "loxx setup: found neither ~/.bashrc nor ~/.zshrc, and your login shell is neither bash nor zsh")
+		}
 		return 1
 	}
 	if !*noImport {
@@ -221,7 +244,7 @@ func runStatus(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "embeddings: %d pending (run `loxx embed --pending`, or they're embedded after your next command)\n", pending)
 	}
 
-	for _, sh := range supportedShells {
+	for _, sh := range setupShells() {
 		rc, _ := setup.RCFile(sh, home)
 		b, err := os.ReadFile(rc)
 		state := "no hook"

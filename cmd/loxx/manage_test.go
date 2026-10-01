@@ -8,9 +8,12 @@ import (
 	"testing"
 )
 
-// fakeHome points every loxx path at a fresh temporary home directory.
+// fakeHome points every loxx path at a fresh temporary home directory, and
+// makes setup behave as on Linux, where both shells are set up, whatever
+// system the tests run on (TestSetupOnMacOS checks macOS).
 func fakeHome(t *testing.T, loginShell string) string {
 	t.Helper()
+	pretendOS(t, "linux")
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("SHELL", "/bin/"+loginShell)
@@ -20,6 +23,15 @@ func fakeHome(t *testing.T, loginShell string) string {
 	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
 	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
 	return home
+}
+
+// pretendOS makes setup and status behave as on system (a GOOS value) until
+// the test ends.
+func pretendOS(t *testing.T, system string) {
+	t.Helper()
+	real := goos
+	goos = system
+	t.Cleanup(func() { goos = real })
 }
 
 func write(t *testing.T, path, content string) {
@@ -116,6 +128,48 @@ func TestUninstallKeepsDataAndForeignBinary(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "was not installed by install.sh") {
 		t.Errorf("uninstall must leave a binary it didn't install:\n%s", stderr)
+	}
+}
+
+// TestSetupOnMacOS checks that on macOS setup adds the hook to ~/.zshrc only,
+// never to ~/.bashrc (macOS's bash is too old for it), and tells someone
+// whose login shell is bash how to switch.
+func TestSetupOnMacOS(t *testing.T) {
+	home := fakeHome(t, "zsh")
+	pretendOS(t, "darwin")
+	bashrc := filepath.Join(home, ".bashrc")
+	write(t, bashrc, "# from the bash days\n")
+	write(t, filepath.Join(home, ".bash_history"), "brew update\n")
+
+	_, stderr := runOK(t, "setup")
+	if !strings.Contains(stderr, "added the hook to ~/.zshrc") || !strings.Contains(stderr, "imported 1 command(s)") {
+		t.Errorf("setup output:\n%s", stderr)
+	}
+	if strings.Contains(stderr, "chsh") {
+		t.Errorf("zsh is the login shell, so there's nothing to switch:\n%s", stderr)
+	}
+	if read(t, bashrc) != "# from the bash days\n" {
+		t.Error("setup changed ~/.bashrc on macOS")
+	}
+	stdout, _ := runOK(t, "status")
+	if strings.Contains(stdout, "bash:") || !strings.Contains(stdout, "zsh:") {
+		t.Errorf("status on macOS should list zsh only:\n%s", stdout)
+	}
+
+	// A bash login shell with no ~/.zshrc: nothing to set up, and the
+	// message says how to switch to zsh.
+	home = fakeHome(t, "bash")
+	pretendOS(t, "darwin")
+	write(t, filepath.Join(home, ".bashrc"), "# bash\n")
+	var out, errOut strings.Builder
+	if code := run([]string{"setup", "--no-import"}, &out, &errOut); code != 1 {
+		t.Errorf("setup with only bash on macOS: exit %d, want 1\n%s", code, errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "chsh -s /bin/zsh") || !strings.Contains(errOut.String(), "found no ~/.zshrc") {
+		t.Errorf("setup should explain how to switch to zsh:\n%s", errOut.String())
+	}
+	if read(t, filepath.Join(home, ".bashrc")) != "# bash\n" {
+		t.Error("setup changed ~/.bashrc on macOS")
 	}
 }
 

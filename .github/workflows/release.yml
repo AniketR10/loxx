@@ -1,5 +1,5 @@
-name: Release
 
+name: Release
 # Pushing a tag like v0.1.0 publishes a release. A tag with a suffix, like
 # v0.1.0-rc1, is published as a pre-release: it never becomes "latest", so
 # the install URL keeps pointing at the last real release.
@@ -40,6 +40,8 @@ jobs:
           subject-path: |
             dist/loxx-linux-amd64
             dist/loxx-linux-arm64
+            dist/loxx-darwin-amd64
+            dist/loxx-darwin-arm64
             dist/install.sh
       - name: Publish the release
         env:
@@ -53,7 +55,7 @@ jobs:
               install="curl -fsSL $base/download/$GITHUB_REF_NAME/install.sh | LOXX_RELEASE_URL=$base/download/$GITHUB_REF_NAME sh" ;;
           esac
           cat >notes.md <<EOF
-          Install (Linux, bash or zsh):
+          Install (Linux with bash or zsh, or macOS with zsh):
 
           \`\`\`
           $install
@@ -65,6 +67,9 @@ jobs:
           \`\`\`
           gh attestation verify loxx-linux-amd64 --repo $GITHUB_REPOSITORY
           \`\`\`
+
+          (Use the name of the file you downloaded, e.g. \`loxx-darwin-arm64\` on a Mac
+          with an Apple chip.)
           EOF
           gh release create "$GITHUB_REF_NAME" dist/* $prerelease --verify-tag \
             --title "loxx $GITHUB_REF_NAME" --notes-file notes.md --generate-notes

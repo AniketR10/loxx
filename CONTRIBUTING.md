@@ -4,7 +4,8 @@ Thanks for helping. This page explains how to build, test and change loxx.
 
 ## What you need
 
-Go 1.25 or newer, `make`, `curl`, bash and zsh.
+Go 1.25 or newer, `make`, `curl`, bash and zsh. On a Mac, the tests skip
+bash, which loxx doesn't support there.
 
 ## Build and test
 
@@ -24,6 +25,7 @@ More checks, if you need them:
 | `make fuzz` | Throws random input at the secret remover for a minute. |
 | `make dist` | Builds the files for a release into `dist/`. |
 | `sh tools/installtest/run.sh` | Installs, uses and removes loxx on a clean Fedora (needs podman). |
+| `make dist && LOXX_RELEASE_URL=file://$PWD/dist sh tools/installtest/macos.sh` | The same for a new Mac user, in a temporary home folder. CI runs it on GitHub's Macs. |
 | `LOXX_BENCH_HOOKS=1 go test ./cmd/loxx -run TestHookOverhead -v` | How much loxx slows the terminal. |
 | `go run ./tools/eval --db DB --queries FILE` | How good search results are (see [docs/decisions](docs/decisions/)). |
 
@@ -32,7 +34,8 @@ More checks, if you need them:
 1. Never slow down the terminal. Saving happens in the background.
 2. Never save a secret. Everything saved goes through `internal/scrub`.
 3. Never use the internet.
-4. Stay one single file with no extra dependencies (`CGO_ENABLED=0`).
+4. Stay one single file with no extra dependencies (`CGO_ENABLED=0`; checked
+   by `tools/checkstatic.sh`).
 5. Never run a command for the user.
 6. `loxx uninstall` must undo everything `loxx setup` did, exactly.
 7. Search must still work (by keyword) if the search model isn't ready.

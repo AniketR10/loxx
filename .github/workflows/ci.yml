@@ -12,9 +12,12 @@ permissions:
 jobs:
   ci:
     strategy:
+      # Let every system finish, so one failure doesn't hide another's.
+      fail-fast: false
       matrix:
-        # Both architectures loxx ships for, each on native hardware.
-        runner: [ubuntu-latest, ubuntu-24.04-arm]
+        # Every system and architecture loxx ships for, each on native
+        # hardware: Linux amd64/arm64, macOS on Apple chips and on Intel.
+        runner: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-15-intel]
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
@@ -31,13 +34,21 @@ jobs:
         with:
           path: internal/embed/model/minilm-l6-v2.f16.safetensors
           key: model-${{ hashFiles('Makefile') }}
-      - name: Install zsh (for the shell hook tests)
+      - name: Install zsh (for the shell hook tests; macOS already has it)
+        if: runner.os == 'Linux'
         run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends zsh
       - name: Lint
         run: make lint
       - name: Test
         run: make test
-      - name: Build and verify static binary
+      - name: Build and verify it is one self-contained file
         run: make check-static
       - name: Smoke test
         run: ./bin/loxx version
+      # The Linux version of this check runs in a fresh Fedora container
+      # (tools/installtest/run.sh); a macOS runner is already a fresh Mac.
+      - name: Install check (macOS, as a fresh zsh user)
+        if: runner.os == 'macOS'
+        run: |
+          make dist DIST_TARGETS="darwin/$(go env GOARCH)"
+          LOXX_RELEASE_URL="file://$PWD/dist" sh tools/installtest/macos.sh
