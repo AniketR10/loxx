@@ -28,7 +28,7 @@
 
 ## 1. What we are building
 
-**loxx** is an open-source (MIT), local-first shell-history tool for Linux:
+**loxx** is an open-source (MIT), local-first shell-history tool for Linux and macOS:
 - It records every command you run in bash/zsh, along with its directory, exit code, time and duration.
 - It removes secrets before anything is stored.
 - It embeds commands with a small model compiled into the binary.
@@ -58,7 +58,7 @@ no network calls.
 | P1 | **Never slow the prompt.** | The hook runs `loxx record` in the background. Record latency is benchmarked in CI. |
 | P2 | **Never store an unscrubbed secret.** | All writes go through the scrubber. There is no code path that writes raw text. A test corpus runs in CI. |
 | P3 | **No network by default.** | The embedding model is compiled in. No telemetry. Any network feature is opt-in and documented. |
-| P4 | **Single static binary.** | `CGO_ENABLED=0`, checked in CI. No runtime dependencies. |
+| P4 | **Single static binary.** | `CGO_ENABLED=0`, checked in CI (`tools/checkstatic.sh`). No runtime dependencies. On macOS, where Apple doesn't support fully static binaries, this means: built without cgo and linking only libraries that are part of macOS (`libSystem`, `libresolv`). |
 | P5 | **Never execute on the user's behalf.** | Selecting a result only fills the prompt buffer. |
 | P6 | **Fully reversible.** | rc-file edits are wrapped in markers and idempotent. `loxx uninstall` removes everything. |
 | P7 | **Search still works without embeddings.** | If the model or embeddings aren't ready, fall back to FTS keyword search. |
@@ -75,7 +75,8 @@ no network calls.
 | Project / binary name | **loxx** (renamed from `loc` on 2026-09-30 by the user, before Phase 6 bakes the name into the installer; this also resolves the old name clash with `cgag/loc`, a lines-of-code counter). Everything was renamed: command, binary, shell function, `LOXX_*` env vars, data folder `~/.local/share/loxx` (an existing `~/.local/share/loc` holding our `history.db` is **moved automatically** on first use), Go module `github.com/AniketR10/loxx`, docs. **The GitHub repo must be renamed by the user** (Settings → Rename); GitHub redirects the old URLs. |
 | Go module path | **github.com/AniketR10/loxx** (was `…/loc` until 2026-09-30) |
 | License | **MIT** |
-| v1 platform | **Linux only** (amd64 + arm64: see PROPOSED) |
+| v1 platform | **Linux (amd64 + arm64) and macOS (Apple chips + Intel)**. Was "Linux only"; the user moved macOS support from Phase 8+ into Phase 7, before the trial (2026-10-01), on its own branch `macos-support`. Native Windows is not planned (it would need a PowerShell hook); WSL is Linux. |
+| macOS details | User accepted Claude's defaults (2026-10-01): **zsh only** (macOS's own bash is 3.2, below the 4.4 minimum; `loxx setup` skips bash on a Mac and tells bash users how to switch with `chsh`). **Same data paths as Linux** (`~/.local/share/loxx`, `~/.local/state/loxx`, `~/.local/bin`). **Binaries for both chips**: `loxx-darwin-arm64` (ad-hoc code-signed by Go's linker, which macOS requires on Apple chips) and `loxx-darwin-amd64`. **Tested on GitHub's macOS runners** (`macos-latest`, `macos-15-intel`): the whole suite plus a fresh-user install check (`tools/installtest/macos.sh`). Then a new pre-release, `v0.1.0-rc2`, and the trial runs on that. |
 | v1 shells | **Bash + Zsh** |
 | How the search panel opens | **Type `loxx`** (no arguments). **No keyboard shortcut** (user, 2026-09-29; replaces "take over Ctrl-R": Ctrl-R and the candidate keys are used by the user or by VS Code's terminal). The hook defines a `loxx` shell function: in **zsh** the chosen command lands in the next prompt (`print -z`); in **bash**, which cannot pre-fill the next prompt, it is added to history, **one ↑ away**. Running the binary directly (no hook) prints the choice to stdout. Enter never executes (P5). |
 | Setup burden | **Install only.** No manual steps (except the package-manager caveat in Phase 6) |
@@ -95,10 +96,10 @@ no network calls.
 | Prompt-overhead target | **≤ 10 ms added per command** (user, 2026-09-28, after measuring bash +3.9 ms and zsh +1.3 ms) |
 | TUI library | **Bubbletea v2.0.9 alone** (no Bubbles, no Lipgloss), user 2026-09-29 after a measured spike: +2.1 MB binary, 24.8 ms first paint, 16 MIT/BSD modules (`docs/decisions/0002-tui-library.md`). Pinned below v2.0.10, which needs Go 1.26. |
 | Panel behaviour (user, 2026-09-29) | **Empty query → most recent commands.** **Tab cycles filters** (all → this dir → this session → failed). **"Failed" = the last run failed.** **"This dir" = the same directory, or anywhere in the same git repo when in one.** Enter fills the prompt and never executes (P5). |
-| Installer hosting | **`install.sh` is a GitHub Release asset**: `https://github.com/AniketR10/loxx/releases/latest/download/install.sh` (user, 2026-09-30; was O3). It is published with each release, so it always matches the binaries it downloads. It works publicly once the repo is public. **Asset naming contract for Phase 7's releases:** `loxx-linux-amd64`, `loxx-linux-arm64` (raw static binaries, no archive) and `checksums.txt` (`sha256sum` format). |
+| Installer hosting | **`install.sh` is a GitHub Release asset**: `https://github.com/AniketR10/loxx/releases/latest/download/install.sh` (user, 2026-09-30; was O3). It is published with each release, so it always matches the binaries it downloads. It works publicly once the repo is public. **Asset naming contract for Phase 7's releases:** `loxx-linux-amd64`, `loxx-linux-arm64`, `loxx-darwin-amd64`, `loxx-darwin-arm64` (raw binaries, no archive; the macOS ones since 2026-10-01) and `checksums.txt` (`sha256sum` format; `install.sh` checks it with `shasum -a 256` on a Mac). |
 | Config file | **None in v1** (user, 2026-09-30). With no keybinding there's nothing to configure; env vars cover edge cases (`LOXX_DB_PATH`, `LOXX_BACKGROUND_EMBED`). Add one only when a real setting needs it. |
 | Installer testing | **A local release served to a fresh Fedora podman container** (user, 2026-09-30); the real GitHub download is exercised in Phase 7. Dev-only download approved: the `fedora` container image. |
-| Release tooling | **A plain GitHub Actions workflow** (on a `v*` tag), not GoReleaser: we publish only 2 raw binaries, `checksums.txt` and `install.sh` (user accepted Claude's recommendation, 2026-10-01) |
+| Release tooling | **A plain GitHub Actions workflow** (on a `v*` tag), not GoReleaser: we publish only 4 raw binaries (2 when this was decided), `checksums.txt` and `install.sh` (user accepted Claude's recommendation, 2026-10-01) |
 | Linux architectures | **amd64 + arm64** |
 | Release provenance | **GitHub artifact attestations** (`actions/attest-build-provenance`); users verify with `gh attestation verify`. No cosign/GPG keys to manage (user accepted, 2026-10-01) |
 | Distro packages | **None for v0.1.0**; `install.sh` only. Add packages when real users ask (user accepted, 2026-10-01) |
@@ -429,10 +430,20 @@ zsh 5.9 turned out to be installed already.
 - [x] arm64: no emulator on the dev machine, so CI now runs the whole suite on GitHub's **native arm64 runners** (`ubuntu-24.04-arm`, free for public repos) on every push and before every release. First run passed (PR #5 and the `v0.1.0-rc1` release run).
 - [ ] Dogfood period: **2–3 weeks** (user, 2026-10-01), the user plus friends testing it. Friends install from a **pre-release** (`v0.1.0-rc1`), since `install.sh` needs a published release. Bugs are logged here.
 - [x] O1 (name collision): resolved by the rename to loxx
+- macOS support (user, 2026-10-01: moved here from Phase 8+, before the trial; decisions in §3 "macOS details"), on branch `macos-support`:
+  - [x] `install.sh`: detects macOS, downloads `loxx-darwin-<arch>`, checks it with `shasum -a 256` when there is no `sha256sum`. Checked locally with `sha256sum` hidden from `PATH`.
+  - [x] `loxx setup` / `status`: zsh only on macOS; a bash login shell gets an explanation and the `chsh -s /bin/zsh` fix. `TestSetupOnMacOS` runs on any system (it pretends to be macOS); a negative control (macOS rule removed) makes it fail.
+  - [x] `make dist`: four binaries; `tools/checkstatic.sh` checks each one (Linux: statically linked; macOS: no cgo, and on a Mac only system libraries via `otool`). Checked from Linux with Go's `debug/macho`: both Mac binaries link only `/usr/lib/libSystem.B.dylib` and `/usr/lib/libresolv.9.dylib`, and the arm64 one carries a code signature.
+  - [x] Tests: the real-terminal tests (hooks, panel, installer) now open a pseudo-terminal the macOS way too (`pty_darwin_test.go`) and skip bash on macOS. They compile, vet and pass staticcheck for darwin/amd64 and darwin/arm64; **they have not run on a Mac yet**.
+  - [x] CI and release: CI adds `macos-latest` (Apple chip) and `macos-15-intel`, plus the fresh-Mac-user install check (`tools/installtest/macos.sh`, verified locally on Linux with zsh); the release attests and publishes the Mac binaries.
+  - [x] README, CONTRIBUTING, bug report template: macOS with zsh; bash not supported there; `~/.local/bin` is usually not in a Mac's `PATH` (typing `loxx` still works through the hook).
+  - [ ] First CI run on GitHub's Macs passes (both runners)
+  - [ ] `v0.1.0-rc2` released with the Mac binaries; the trial runs on it
 - [x] History scan before/at going public: clean (§3 GitHub repo)
 
 **Exit criteria**
 - [ ] Tagged `v0.1.0` release with binaries, checksums, install.sh and attestations (**after the 2–3 week trial**; the pipeline is proven by `v0.1.0-rc1`)
+- [ ] CI passes on both macOS runners, including the fresh-Mac-user install check
 - [x] `tools/installtest` passes against the **real** GitHub release URL on a fresh Fedora container (`v0.1.0-rc1`, 2026-10-01: install → record → re-install → uninstall, PASS)
 - [x] No open P1–P8 violations (audit above, 2026-10-01)
 
@@ -440,7 +451,7 @@ zsh 5.9 turned out to be installed already.
 
 ### Phase 8+: Toward "fully fledged" (order to be decided with the user after v0.1)
 Candidates. Each becomes a scheduled phase only after the user picks it:
-- macOS support
+- ~~macOS support~~ (moved into Phase 7 by the user, 2026-10-01)
 - fish shell
 - Optional Ollama backend (bigger models)
 - LLM-generated one-line descriptions of each unique command (needs Ollama or a bundled LLM). **Evidence from the 2026-09-27 bake-off:** every model missed questions needing command *meaning* ("shelve changes" → `git stash`, "apply a single commit" → `cherry-pick`, "undo last commit, keep changes" → `reset --soft`). This is the most likely next quality jump.
@@ -455,7 +466,7 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 
 ## 6. Progress log
 
-**Current phase: Phase 7: trial period** (2–3 weeks from 2026-10-01, the user plus friends on `v0.1.0-rc1`). Then fix what they find and tag `v0.1.0`.
+**Current phase: Phase 7: macOS support, then the trial period.** macOS support is on branch `macos-support` (user, 2026-10-01). Once CI passes on GitHub's Macs: merge, release `v0.1.0-rc2`, then the 2–3 week trial on rc2 (the user plus friends). Then fix what they find and tag `v0.1.0`.
 
 | Date | Phase | What happened / evidence |
 |---|---|---|
@@ -468,6 +479,7 @@ Candidates. Each becomes a scheduled phase only after the user picks it:
 | 2026-09-29 | Phase 5 ✅ | Search panel: typing `loxx` opens an inline Bubbletea v2.0.9 panel (spike: +1.6 MB, ~30 ms to first frame; target ≤ 100 ms); keyword results per keystroke, meaning-based after a 150 ms pause; Tab filters (all/dir-or-repo/session/failed); Enter → zsh pre-filled prompt / bash one ↑ away; never executes. No keyboard shortcut (user: Ctrl-R and candidates are taken by them or by VS Code). Tested in a pty and in real bash/zsh; the user confirmed it works in the VS Code terminal. Not committed yet: the user commits. |
 | 2026-09-30 | Rename + Phase 6 ✅ | Renamed loc → **loxx** everywhere (data folder moved automatically on first run; GitHub repo renamed by the user). Phase 6: `install.sh` (SHA-256-verified, atomic, no PATH edits), `loxx setup` / `uninstall` (byte-identical rc restore, symlink-safe, hand-written hooks detected), `loxx status`, `loxx forget` (secure delete, verified on disk). Fresh Fedora container test passes; it found and fixed a double-import on re-install. Not committed yet: the user commits. |
 | 2026-10-01 | Phase 7: rc1 released | Repo public (history scan clean). Release workflow + `make dist`, CI on native amd64 and arm64, plain-language README/SECURITY/CONTRIBUTING, P1–P8 audit (P3 proven in a no-network namespace). `v0.1.0-rc1` published with verified checksums and attestations; the fresh-Fedora install check passes against the real download. Trial period started. Not committed yet: the user commits. |
+| 2026-10-01 | Phase 7: macOS support | User moved macOS support into Phase 7, before the trial, on branch `macos-support`, and accepted the defaults (zsh only, same paths, both chips, CI on GitHub's Macs, then rc2). Built: installer, setup/status, `make dist` with four binaries and `tools/checkstatic.sh`, macOS pseudo-terminal for the tests, CI on `macos-latest` + `macos-15-intel` with a fresh-Mac-user install check, docs. Locally: `make lint test` passes; vet and staticcheck pass for darwin/amd64 and darwin/arm64; Mac binaries link only system libraries and the arm64 one is signed; the install check passes as a fresh zsh user (on Linux). Not yet run on a real Mac: that's the first CI run. Not committed yet: the user commits. |
 
 ---
 
@@ -479,4 +491,6 @@ _Ideas that come up mid-phase go here, not into the code._
 - Memory at scale: `loxx search` peaks at 537 MB with 100k commands (154 MB f32 vectors + SQLite blob copies while loading; `EmbeddingMatrix` allocates ~470 MB at 100k). Options to measure: stream-decode without per-row copies, or store vectors as f16/int8 (2–4× smaller).
 - Memory: `loxx embed` peaks at ~230 MB RSS (f32 weights + the embedded f16 copy + GC headroom). Before the TUI (Phase 5) holds the model for a whole session, try `debug.SetGCPercent`/`SetMemoryLimit` or dropping the f16 bytes after conversion, measured A/B.
 - Scrubber gap (found 2026-09-27 on real history): Langfuse secret keys `sk-lf-<uuid>` are only caught next to a telling name (`*_SECRET_KEY=`). Passed bare, the hex+dash value is skipped by the entropy layer. Add a known-token rule for `sk-lf-` (and ask whether `pk-lf-` public keys should be redacted too).
+- **bash on macOS** (left out on 2026-10-01, see §3 "macOS details"): only for bash ≥ 4.4 (e.g. from Homebrew). Needs care: Mac terminals start login shells, which read `~/.bash_profile` (or `~/.bash_login`, or `~/.profile`), not `~/.bashrc`, and creating a `~/.bash_profile` hides an existing `~/.profile`.
+- **Native Windows** (PowerShell): a new hook and a new way to fill the prompt; much bigger than macOS. WSL is Linux and should already work, but it is untested.
 - CI: GitHub says `ubuntu-latest` moves to Ubuntu 26 from 2026-10-19. Static binaries shouldn't care, but check the first CI run after that date.
