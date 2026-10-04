@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Searching your shell history with loxx</title>
+<meta name="description" content="How the loxx search list works: keys, filters for this folder, this terminal and failed commands, and searching by meaning or by keyword from scripts.">
+<link rel="canonical" href="https://loxx.run/docs/usage/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+<meta name="color-scheme" content="light dark">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="loxx">
+<meta property="og:title" content="Searching your shell history with loxx">
+<meta property="og:description" content="How the loxx search list works: keys, filters for this folder, this terminal and failed commands, and searching by meaning or by keyword from scripts.">
+<meta property="og:url" content="https://loxx.run/docs/usage/">
+<meta property="og:image" content="https://loxx.run/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script src="/copy.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/">loxx<span>_</span></a>
+    <nav aria-label="Main">
+      <a href="/docs/" aria-current="page">Docs</a>
+      <a href="/download/">Download</a>
+      <a href="https://github.com/AniketR10/loxx">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap docs">
+  <nav aria-label="Docs">
+    <p class="label">Docs</p>
+    <ul>
+        <li><a href="/docs/">Getting started</a></li>
+        <li><a href="/docs/usage/" aria-current="page">Searching</a></li>
+        <li><a href="/docs/commands/">Commands</a></li>
+        <li><a href="/docs/privacy/">Privacy and secrets</a></li>
+        <li><a href="/docs/how-it-works/">How it works</a></li>
+        <li><a href="/docs/troubleshooting/">Troubleshooting and FAQ</a></li>
+    </ul>
+  </nav>
+  <article class="page">
+<h1>Searching</h1>
+<p>Type <code>loxx</code> with no arguments to open the search list right under your prompt.</p>
+<div class="term" role="img" aria-label="The loxx search list with four results and the key help line.">
+<pre><b>loxx ❯</b> undo last commit<span class="cursor"> </span>
+<span class="sel">▸ git reset --soft HEAD~1</span>  <span class="dim">~/code/shop · 3 days ago · 2×</span> <span class="ok">✓</span>
+  git revert HEAD  <span class="dim">~/code/api · 2 weeks ago</span> <span class="ok">✓</span>
+  git commit --amend  <span class="dim">~/code/shop · 1 day ago · 6×</span> <span class="ok">✓</span>
+  git log --oneline -5  <span class="dim">imported</span>
+<span class="dim">filter: all (Tab) · ↑↓ · Enter use · Esc cancel</span></pre>
+</div>
+
+<h2 id="keys">Keys</h2>
+<div class="table"><table>
+  <thead><tr><th>Key</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td>Type</td><td>Search. Exact matches show at once, matches by meaning a moment later.</td></tr>
+    <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Move through the list.</td></tr>
+    <tr><td><kbd>Tab</kbd></td><td>Switch the filter (see below). <kbd>Shift</kbd>+<kbd>Tab</kbd> goes back.</td></tr>
+    <tr><td><kbd>Enter</kbd></td><td>Use the command: zsh puts it in your prompt, bash puts it one <kbd>↑</kbd> away.</td></tr>
+    <tr><td><kbd>Esc</kbd> or <kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Close without choosing.</td></tr>
+  </tbody>
+</table></div>
+<p>With an empty search, the list shows your most recent commands.</p>
+
+<h2 id="results">Reading a result</h2>
+<p>Each line shows the command, then the folder it ran in, when it last ran, how many times it ran (<code>14×</code>), and whether it worked: <span style="color:var(--ok)">✓</span> for success, <span style="color:var(--bad)">✗</span> for a failure. Commands loaded from your old history say “imported”. A command that spans several lines is shown on one line, with <code>↵</code> marking the line breaks.</p>
+
+<h2 id="filters">Filters</h2>
+<p><kbd>Tab</kbd> cycles through:</p>
+<div class="table"><table>
+  <thead><tr><th>Filter</th><th>Shows</th></tr></thead>
+  <tbody>
+    <tr><td>all</td><td>Everything.</td></tr>
+    <tr><td>this dir</td><td>Commands run in this folder. Inside a git repository: anywhere in the same repository.</td></tr>
+    <tr><td>this session</td><td>Commands run in this terminal window or tab.</td></tr>
+    <tr><td>failed</td><td>Commands whose last run failed.</td></tr>
+  </tbody>
+</table></div>
+
+<h2 id="meaning">Keyword and meaning</h2>
+<p>Every search runs two ways at once and merges the results:</p>
+<ul>
+  <li><strong>Keyword:</strong> commands containing all the words you typed. Good for names you remember: <code>kubectl port-forward</code>.</li>
+  <li><strong>Meaning:</strong> commands whose purpose is closest to what you typed, even with no words in common. “expose my service locally” finds <code>kubectl port-forward</code> too.</li>
+</ul>
+<p>Search by meaning always shows the closest matches, even when none of them is a good match.</p>
+
+<h2 id="scripts">From scripts and other tools</h2>
+<p><code>loxx search</code> prints matches instead of opening the list:</p>
+<div class="cmd"><pre>loxx search --limit 3 compress a folder</pre></div>
+<div class="term"><pre>tar -czvf backup.tar.gz ~/Documents
+<span class="dim">    ~ · 2 weeks ago · exit 0 · 1 run</span></pre></div>
+<p>Running the program directly as <code>~/.local/bin/loxx</code> (without the shell hook) opens the list and prints the chosen command, so you can use it in your own scripts.</p>
+    <nav class="next" aria-label="Previous and next page"><a href="/docs/">← Getting started</a><a href="/docs/commands/">Commands →</a></nav>
+  </article>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>loxx is free and open source (MIT).</span>
+    <nav aria-label="Footer">
+      <a href="/docs/">Docs</a>
+      <a href="/download/">Download</a>
+      <a href="https://github.com/AniketR10/loxx">GitHub</a>
+      <a href="https://github.com/AniketR10/loxx/releases">Releases</a>
+      <a href="https://github.com/AniketR10/loxx/blob/main/SECURITY.md">Security</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>
