@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>loxx troubleshooting, settings and FAQ</title>
+<meta name="description" content="Fix common loxx problems, the environment variables it reads, and answers about Windows, other shells, syncing between machines and file size.">
+<link rel="canonical" href="https://loxx.run/docs/troubleshooting/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+<meta name="color-scheme" content="light dark">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="loxx">
+<meta property="og:title" content="loxx troubleshooting, settings and FAQ">
+<meta property="og:description" content="Fix common loxx problems, the environment variables it reads, and answers about Windows, other shells, syncing between machines and file size.">
+<meta property="og:url" content="https://loxx.run/docs/troubleshooting/">
+<meta property="og:image" content="https://loxx.run/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script src="/copy.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/">loxx<span>_</span></a>
+    <nav aria-label="Main">
+      <a href="/docs/" aria-current="page">Docs</a>
+      <a href="/download/">Download</a>
+      <a href="https://github.com/AniketR10/loxx">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap docs">
+  <nav aria-label="Docs">
+    <p class="label">Docs</p>
+    <ul>
+        <li><a href="/docs/">Getting started</a></li>
+        <li><a href="/docs/usage/">Searching</a></li>
+        <li><a href="/docs/commands/">Commands</a></li>
+        <li><a href="/docs/privacy/">Privacy and secrets</a></li>
+        <li><a href="/docs/how-it-works/">How it works</a></li>
+        <li><a href="/docs/troubleshooting/" aria-current="page">Troubleshooting and FAQ</a></li>
+    </ul>
+  </nav>
+  <article class="page">
+<h1>Troubleshooting and FAQ</h1>
+<p>Start with <code>loxx status</code>. It shows what's saved, whether the hook is in your shell settings, and whether it's active in this terminal.</p>
+
+<h2 id="not-saved">Commands aren't being saved</h2>
+<ul>
+  <li>Open a new terminal. Terminals opened before the install don't have the hook.</li>
+  <li>If <code>loxx status</code> says the hook isn't in your settings, run <code>loxx setup</code>.</li>
+  <li><strong>bash:</strong> the loxx block should be near the end of <code>~/.bashrc</code>. Tools that change <code>PROMPT_COMMAND</code> after it can switch it off.</li>
+  <li>Commands that start with a space are never saved, on purpose.</li>
+</ul>
+
+<h2 id="no-meaning">Search by meaning doesn't find new commands</h2>
+<p>New commands are processed in the background shortly after you run them. If <code>loxx status</code> shows commands waiting, run:</p>
+<div class="cmd"><pre>loxx embed --pending</pre></div>
+
+<h2 id="not-found"><code>loxx: command not found</code></h2>
+<p>The installer puts loxx in <code>~/.local/bin</code> and doesn't change your <code>PATH</code>. In a new terminal, typing <code>loxx</code> works anyway, because the hook adds it. Anywhere else, such as scripts, use <code>~/.local/bin/loxx</code>, or add <code>~/.local/bin</code> to your <code>PATH</code>.</p>
+
+<h2 id="settings">Settings</h2>
+<p>loxx has no settings file. These environment variables cover the rare cases:</p>
+<div class="table"><table>
+  <thead><tr><th>Variable</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><code>LOXX_DB_PATH</code></td><td>Keep the history in a different file.</td></tr>
+    <tr><td><code>LOXX_BACKGROUND_EMBED=0</code></td><td>Don't process new commands in the background. Search by meaning then only covers what <code>loxx embed --pending</code> has processed.</td></tr>
+    <tr><td><code>XDG_DATA_HOME</code></td><td>If set, the history goes in <code>$XDG_DATA_HOME/loxx/</code> instead of <code>~/.local/share/loxx/</code>.</td></tr>
+  </tbody>
+</table></div>
+
+<h2 id="changes">What loxx changes on your computer</h2>
+<div class="table"><table>
+  <tbody>
+    <tr><td><code>~/.local/bin/loxx</code></td><td>The program.</td></tr>
+    <tr><td><code>~/.bashrc</code>, <code>~/.zshrc</code></td><td>One marked block between <code># &gt;&gt;&gt; loxx &gt;&gt;&gt;</code> and <code># &lt;&lt;&lt; loxx &lt;&lt;&lt;</code>. On a Mac, only <code>~/.zshrc</code>.</td></tr>
+    <tr><td><code>~/.local/share/loxx/</code></td><td>Your saved commands.</td></tr>
+    <tr><td><code>~/.local/state/loxx/</code></td><td>A note that the installer put the program there, so uninstall can remove it.</td></tr>
+  </tbody>
+</table></div>
+<p><code>loxx uninstall</code> undoes all of it and puts your shell settings back byte for byte.</p>
+
+<h2 id="faq">FAQ</h2>
+<h3 id="windows">Does it work on Windows?</h3>
+<p>Not natively. Windows Subsystem for Linux is Linux, so the Linux install should work there, but it hasn't been tested yet.</p>
+<h3 id="mac-bash">Why only zsh on a Mac?</h3>
+<p>The bash that comes with macOS is version 3.2 from 2007, and loxx needs 4.4 or newer. zsh has been the Mac default since 2019.</p>
+<h3 id="fish">What about fish or other shells?</h3>
+<p>Only bash and zsh for now.</p>
+<h3 id="sync">Can I sync my history between computers?</h3>
+<p>No. Each computer keeps its own history, and loxx never connects to the internet.</p>
+<h3 id="size">Why is it 54&nbsp;MB?</h3>
+<p>The search model is built into the program, so it works offline with nothing to download later.</p>
+<h3 id="run">Can loxx run a command by mistake?</h3>
+<p>No. Choosing a result only puts it in your prompt (zsh) or one <kbd>↑</kbd> away (bash). You always press Enter yourself.</p>
+
+<h2 id="bugs">Still stuck?</h2>
+<p><a href="https://github.com/AniketR10/loxx/issues/new?template=bug_report.md">Open an issue</a> with the output of <code>loxx status</code>. It shows counts and paths, not your commands.</p>
+    <nav class="next" aria-label="Previous and next page"><a href="/docs/how-it-works/">← How it works</a><span></span></nav>
+  </article>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>loxx is free and open source (MIT).</span>
+    <nav aria-label="Footer">
+      <a href="/docs/">Docs</a>
+      <a href="/download/">Download</a>
+      <a href="https://github.com/AniketR10/loxx">GitHub</a>
+      <a href="https://github.com/AniketR10/loxx/releases">Releases</a>
+      <a href="https://github.com/AniketR10/loxx/blob/main/SECURITY.md">Security</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>
