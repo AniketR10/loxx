@@ -1,3 +1,5 @@
+<p align="center"><img src="site/og.png" alt="Four loxx searches: “undo my last commit” finds git reset --soft HEAD~1, “free up disk space” finds docker system prune -af, “restart the web server” finds sudo systemctl restart nginx, and “what is using port 3000” finds lsof -i :3000" width="720"></p>
+
 # loxx
 
 Find any command you ran before, even if you only remember what it did.
