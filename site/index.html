@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>loxx: search your bash and zsh history by meaning</title>
+<meta name="description" content="loxx remembers every command you run in bash and zsh. Find one by a word in it or by what it did. Offline, open source, and it hides your secrets.">
+<link rel="canonical" href="https://loxx.run/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/home.css">
+<meta name="color-scheme" content="light dark">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="loxx">
+<meta property="og:title" content="loxx: search your shell history by meaning">
+<meta property="og:description" content="Find any command you ran before, even if you only remember what it did. Offline, open source, bash and zsh.">
+<meta property="og:url" content="https://loxx.run/">
+<meta property="og:image" content="https://loxx.run/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "loxx",
+  "description": "Shell history search for bash and zsh, by keyword and by meaning, fully offline.",
+  "url": "https://loxx.run/",
+  "downloadUrl": "https://loxx.run/download/",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Linux, macOS",
+  "license": "https://opensource.org/licenses/MIT",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+<script>document.documentElement.classList.add('js')</script>
+<script src="/copy.js" defer></script>
+<script src="/game.js" defer></script>
+<script src="/home.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/">loxx<span>_</span></a>
+    <nav aria-label="Main">
+      <a href="/#play">Play</a>
+      <a href="/docs/">Docs</a>
+      <a href="/download/">Download</a>
+      <a href="https://github.com/AniketR10/loxx">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="wrap hero-in">
+    <div class="pitch">
+      <h1>Search your shell history by meaning</h1>
+      <p class="lede">loxx remembers every command you run in bash and zsh. Months later, describe what it did, like “undo my last commit”, or type part of it. Pick one and it appears in your prompt, ready to edit.</p>
+      <div class="cmd"><pre>curl -fsSL https://loxx.run/install | sh</pre></div>
+      <p class="meta"><span>Linux and macOS</span><span>bash and zsh</span><span>works offline</span><span>MIT</span></p>
+    </div>
+    <figure class="desk" aria-hidden="true">
+      <p class="bubble">Lost a command? <a href="#play" tabindex="-1">Play today's round ↓</a></p>
+      <svg viewBox="0 0 420 300" fill="var(--bg)" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M30 215v85M300 215v85M0 300h420" fill="none"/>
+        <rect x="10" y="203" width="310" height="12" rx="3"/>
+        <path d="M170 185l-6 18h32l-6-18"/>
+        <rect x="94" y="64" width="172" height="121" rx="9"/>
+        <rect x="106" y="76" width="148" height="97" rx="4"/>
+        <text x="120" y="108" fill="currentColor" stroke="none" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="14">loxx ❯ undo co<tspan class="caret">▌</tspan></text>
+        <text x="120" y="130" fill="currentColor" stroke="none" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="13" font-weight="700">▸ git reset</text>
+        <text x="120" y="150" fill="currentColor" stroke="none" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="13" opacity=".55">  git revert</text>
+        <rect x="44" y="171" width="26" height="32" rx="4"/>
+        <path d="M70 178c11 0 11 17 0 17" fill="none"/>
+        <path class="steam" d="M52 160c-6-7 6-11 0-18M63 160c-6-7 6-11 0-18" fill="none"/>
+        <g class="bot">
+          <path d="M371 156v-8" fill="none"/><circle cx="371" cy="145" r="3"/>
+          <rect x="343" y="156" width="56" height="44" rx="9"/>
+          <path d="M355 170l9 7-9 7M369 184h14" fill="none"/>
+          <rect x="353" y="204" width="36" height="52" rx="6"/>
+          <path d="M353 218l-14 18M389 218l12 -16" fill="none"/>
+          <path d="M363 256v44M379 256v44" fill="none"/>
+        </g>
+      </svg>
+    </figure>
+  </div>
+</section>
+
+<section class="wrap game" id="play" aria-labelledby="game-title">
+  <div class="game-head">
+    <h2 id="game-title">Lost Commands</h2>
+    <p>Five things you once did in a terminal, remembered the way people remember. Find each command by describing it.</p>
+  </div>
+
+  <div class="board" id="board">
+    <div class="view start" id="v-start">
+      <p class="start-text">Five rounds. A new set every day.<span class="today" id="today" hidden></span></p>
+      <button type="button" class="go" id="start">Play</button>
+    </div>
+
+    <div class="view" id="v-round" hidden>
+      <div class="round-top"><span id="round"></span><span class="clock" id="clock">0.0 s</span></div>
+      <blockquote class="clue" id="clue"></blockquote>
+      <div class="demo">
+        <label><b>loxx ❯</b><input id="q" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Search the history"></label>
+        <ul class="rows" id="rows" role="listbox" aria-label="Results"></ul>
+        <p class="hint" id="hint"></p>
+      </div>
+      <div class="round-bottom">
+        <p class="msg" id="msg" aria-live="polite"></p>
+        <div class="round-actions">
+          <button type="button" class="quiet" id="skip">Give up on this one</button>
+          <button type="button" class="quiet" id="quit">Quit</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="view" id="v-end" hidden>
+      <p class="squares" id="squares"></p>
+      <p class="summary" id="summary"></p>
+      <ol class="answers" id="answers"></ol>
+      <div class="end-actions">
+        <button type="button" class="go" id="share">Copy my result</button>
+      </div>
+      <pre class="share-text" id="share-text" hidden></pre>
+      <p class="never">Never lose one again:</p>
+      <div class="cmd"><pre>curl -fsSL https://loxx.run/install | sh</pre></div>
+    </div>
+
+    <div class="nojs">
+      <p>The game needs JavaScript. Here's what a round looks like:</p>
+      <blockquote class="clue">Before a trip, you squeezed your Documents folder into a single file.</blockquote>
+      <div class="demo">
+        <p><b>loxx ❯</b> zip my documents</p>
+        <ul class="rows"><li class="sel"><span class="t">tar -czvf backup.tar.gz ~/Documents</span>  <span class="d">~ · 1 week ago</span> <span class="ok">✓</span></li></ul>
+      </div>
+    </div>
+  </div>
+  <p class="caption">Uses a made-up history. The real loxx searches yours, with a language model built in.</p>
+</section>
+
+<section class="wrap band" id="privacy" aria-labelledby="privacy-title">
+  <header class="band-head">
+    <p class="eyebrow">Privacy and architecture</p>
+    <h2 id="privacy-title">Your shell history never leaves your computer</h2>
+    <p>Shell history holds server names, file paths and, sometimes, passwords. So loxx keeps all of it on your machine, and has nothing to send anywhere.</p>
+  </header>
+  <div class="cards">
+    <article class="card">
+      <svg class="icon" viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="10" width="36" height="24" rx="3"/><path d="M18 40h12M24 34v6M14 20l5 4-5 4M22 28h8"/></svg>
+      <h3>Runs entirely on your machine</h3>
+      <p>The search model is built into the one program you install. No account, no API key, no server, and no internet connection, ever. Search works the same on a plane.</p>
+    </article>
+    <article class="card">
+      <svg class="icon" viewBox="0 0 48 48" aria-hidden="true"><ellipse cx="24" cy="11" rx="15" ry="5"/><path d="M9 11v26c0 2.8 6.7 5 15 5s15-2.2 15-5V11M9 24c0 2.8 6.7 5 15 5s15-2.2 15-5"/></svg>
+      <h3>A local database, with the vectors inside</h3>
+      <p>Commands, their meaning vectors and the keyword index all live in one SQLite file in <code>~/.local/share/loxx</code>. Only you can read it (permissions <code>600</code>).</p>
+    </article>
+    <article class="card">
+      <svg class="icon" viewBox="0 0 48 48" aria-hidden="true"><rect x="11" y="21" width="26" height="20" rx="3"/><path d="M17 21v-6a7 7 0 0 1 14 0v6M24 29v5"/></svg>
+      <h3>Secrets are removed before saving</h3>
+      <p>Passwords, API keys and tokens become <code>&lt;REDACTED&gt;</code> before anything touches the disk. Nothing is ever uploaded, so nothing can leak from a server.</p>
+    </article>
+  </div>
+  <p class="band-more"><a href="/docs/privacy/">What loxx saves, and what it can't catch →</a></p>
+</section>
+
+<section class="wrap band" id="demo" aria-labelledby="demo-title">
+  <header class="band-head center">
+    <p class="eyebrow">See it work</p>
+    <h2 id="demo-title">Describe it, find it</h2>
+  </header>
+  <figure class="cast">
+    <div class="cast-frame">
+      <!-- When the recording exists, replace the transcript below with:
+      <video src="/demo.webm" poster="/demo.png" width="1280" height="720" autoplay muted loop playsinline
+             aria-label="Typing loxx, then “undo my last commit”, finds git reset --soft HEAD~1 and puts it in the prompt">
+      </video>
+      (or <img src="/demo.gif" width="1280" height="720" alt="…the same description…">) -->
+      <div class="transcript" role="img" aria-label="Typing loxx, then “undo my last commit”: the first result is git reset --soft HEAD~1, which goes into the prompt, not run.">
+<pre><span class="dim">~/code/shop $</span> loxx
+<b>loxx ❯</b> undo my last commit
+<b>▸ git reset --soft HEAD~1</b>  <span class="dim">~/code/shop · 3 days ago · 2×</span> <span class="ok">✓</span>
+  git revert HEAD  <span class="dim">~/code/api · 2 weeks ago</span> <span class="ok">✓</span>
+  git commit --amend --no-edit  <span class="dim">~/code/shop · 1 day ago · 6×</span> <span class="ok">✓</span>
+<span class="dim">filter: all (Tab) · ↑↓ · Enter use · Esc cancel</span>
+
+<span class="dim">~/code/shop $</span> git reset --soft HEAD~1<span class="cursor"> </span></pre>
+      </div>
+    </div>
+    <figcaption>The command contains none of the words you typed. loxx compares the <em>meaning</em> of your search with the meaning of every saved command, so <code>git reset --soft HEAD~1</code> comes first. Enter puts it in your prompt; it never runs by itself.</figcaption>
+  </figure>
+</section>
+
+<section class="wrap band" id="compare" aria-labelledby="compare-title">
+  <header class="band-head">
+    <p class="eyebrow">Compared</p>
+    <h2 id="compare-title">The others match text. loxx matches meaning.</h2>
+    <p>Ctrl-R, fzf and McFly are all good at finding a command when you remember how it was written. loxx is for when you only remember what it did.</p>
+  </header>
+  <div class="table compare">
+    <table>
+      <caption class="sr-only">Searching shell history with Ctrl-R, fzf, McFly and loxx</caption>
+      <thead>
+        <tr><th scope="col">What you get</th><th scope="col">Ctrl-R</th><th scope="col">fzf</th><th scope="col">McFly</th><th scope="col" class="us">loxx</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">How it matches</th><td>Exact text</td><td>Letters in order</td><td>Text (substring or fuzzy), ranked by a small neural network</td><td class="us">Words and meaning</td></tr>
+        <tr><th scope="row">Finds <q>undo my last commit</q> → <code>git reset --soft HEAD~1</code></th><td><span class="no" aria-label="No">✗</span></td><td><span class="no" aria-label="No">✗</span></td><td><span class="no" aria-label="No">✗</span></td><td class="us"><span class="yes" aria-label="Yes">✓</span></td></tr>
+        <tr><th scope="row">Narrow to this folder or repo, or this terminal</th><td><span class="no" aria-label="No">✗</span></td><td><span class="no" aria-label="No">✗</span></td><td>Ranks this folder higher</td><td class="us"><span class="yes" aria-label="Yes">✓</span> and “failed”</td></tr>
+        <tr><th scope="row">Keeps passwords and keys out of saved history</th><td><span class="no" aria-label="No">✗</span></td><td><span class="no" aria-label="No">✗</span></td><td><span class="no" aria-label="No">✗</span><br><span class="note-s">only if you skip the command</span></td><td class="us"><span class="yes" aria-label="Yes">✓</span><br><span class="note-s">replaces the secret, keeps the command</span></td></tr>
+        <tr><th scope="row">Shells</th><td>bash (built in)</td><td>bash, zsh, fish</td><td>bash, zsh, PowerShell</td><td class="us">bash, zsh</td></tr>
+        <tr><th scope="row">Works offline</th><td><span class="yes" aria-label="Yes">✓</span></td><td><span class="yes" aria-label="Yes">✓</span></td><td><span class="yes" aria-label="Yes">✓</span></td><td class="us"><span class="yes" aria-label="Yes">✓</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="wrap band" id="configure" aria-labelledby="configure-title">
+  <div class="split">
+    <header class="band-head">
+      <p class="eyebrow">Configuration</p>
+      <h2 id="configure-title">Nothing to configure</h2>
+      <p>loxx has no config file. Install it and it works: secrets are masked automatically, and your history is imported once. For the rare cases, there are two environment variables and two habits.</p>
+      <p><a href="/docs/troubleshooting/#settings">All settings →</a></p>
+    </header>
+    <aside class="code-card" aria-label="Example settings">
+      <p class="code-title">~/.zshrc or ~/.bashrc</p>
+<pre class="code"><code><span class="c"># Keep the history somewhere else (default: ~/.local/share/loxx)</span>
+<span class="k">export</span> <span class="v">LOXX_DB_PATH</span>=<span class="s">"$HOME/data/loxx/history.db"</span>
+
+<span class="c"># Don't process new commands in the background</span>
+<span class="k">export</span> <span class="v">LOXX_BACKGROUND_EMBED</span>=<span class="s">0</span>
+
+<span class="c"># Never saved: start a command with a space</span>
+<span class="p">$</span>  mysql -u admin -pMyRealPassword
+
+<span class="c"># Already saved? Delete it for good</span>
+<span class="p">$</span> loxx forget --last
+<span class="p">$</span> loxx forget --match <span class="s">'internal.example.com'</span></code></pre>
+    </aside>
+  </div>
+</section>
+
+<section class="wrap band cta" aria-labelledby="cta-title">
+  <h2 id="cta-title">Ready to upgrade your terminal?</h2>
+  <p>One line, no sudo. Linux and macOS, bash and zsh.</p>
+  <div class="cmd"><pre>curl -fsSL https://loxx.run/install | sh</pre></div>
+  <p class="cta-links"><a href="/docs/">Read the docs</a><a href="/download/">All downloads</a><a href="https://github.com/AniketR10/loxx">Source on GitHub</a></p>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>loxx is free and open source (MIT).</span>
+    <nav aria-label="Footer">
+      <a href="/docs/">Docs</a>
+      <a href="/download/">Download</a>
+      <a href="https://github.com/AniketR10/loxx">GitHub</a>
+      <a href="https://github.com/AniketR10/loxx/releases">Releases</a>
+      <a href="https://github.com/AniketR10/loxx/blob/main/SECURITY.md">Security</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>
