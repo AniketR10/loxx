@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Download loxx for Linux and macOS</title>
+<meta name="description" content="Install loxx with one command, or download the binary for Linux (amd64, arm64) or macOS (Apple chip, Intel). Checksums and signed build records included.">
+<link rel="canonical" href="https://loxx.run/download/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+<meta name="color-scheme" content="light dark">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="loxx">
+<meta property="og:title" content="Download loxx for Linux and macOS">
+<meta property="og:description" content="Install loxx with one command, or download the binary for Linux (amd64, arm64) or macOS (Apple chip, Intel). Checksums and signed build records included.">
+<meta property="og:url" content="https://loxx.run/download/">
+<meta property="og:image" content="https://loxx.run/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script src="/copy.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/">loxx<span>_</span></a>
+    <nav aria-label="Main">
+      <a href="/docs/">Docs</a>
+      <a href="/download/" aria-current="page">Download</a>
+      <a href="https://github.com/AniketR10/loxx">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap page" style="padding-block: 48px 0">
+  <h1>Download loxx</h1>
+  <p class="lede">One command installs loxx for your system. It needs no <code>sudo</code>.</p>
+
+  <div class="cmd"><pre>curl -fsSL https://loxx.run/install | sh</pre></div>
+  <p>Then open a new terminal and type <code>loxx</code>. The installer:</p>
+  <ul>
+    <li>downloads the program for your system and checks its SHA-256 checksum,</li>
+    <li>puts it in <code>~/.local/bin/loxx</code>,</li>
+    <li>adds one marked block to <code>~/.bashrc</code> and/or <code>~/.zshrc</code>,</li>
+    <li>loads your existing shell history once.</li>
+  </ul>
+  <p>Prefer to get the installer from GitHub directly? This does the same:</p>
+  <div class="cmd"><pre>curl -fsSL https://github.com/AniketR10/loxx/releases/latest/download/install.sh | sh</pre></div>
+
+  <h2 id="requirements">What you need</h2>
+  <div class="table"><table>
+    <thead><tr><th>System</th><th>Shells</th><th>Chips</th></tr></thead>
+    <tbody>
+      <tr><td>Linux</td><td>bash 4.4+ or zsh 5.1+</td><td>x86-64 (amd64), ARM64</td></tr>
+      <tr><td>macOS 12 or newer</td><td>zsh (the Mac default)</td><td>Apple chip, Intel</td></tr>
+    </tbody>
+  </table></div>
+  <p>Windows isn't supported. On a Mac, the bash that comes with macOS is too old for loxx.</p>
+
+  <h2 id="files">Download a file yourself</h2>
+  <p>Each file is the whole program: one file, nothing else to install.</p>
+  <div class="table"><table>
+    <thead><tr><th>System</th><th>File</th></tr></thead>
+    <tbody>
+      <tr><td>Linux, x86-64</td><td><a href="https://github.com/AniketR10/loxx/releases/latest/download/loxx-linux-amd64">loxx-linux-amd64</a></td></tr>
+      <tr><td>Linux, ARM64</td><td><a href="https://github.com/AniketR10/loxx/releases/latest/download/loxx-linux-arm64">loxx-linux-arm64</a></td></tr>
+      <tr><td>macOS, Apple chip</td><td><a href="https://github.com/AniketR10/loxx/releases/latest/download/loxx-darwin-arm64">loxx-darwin-arm64</a></td></tr>
+      <tr><td>macOS, Intel</td><td><a href="https://github.com/AniketR10/loxx/releases/latest/download/loxx-darwin-amd64">loxx-darwin-amd64</a></td></tr>
+      <tr><td>Checksums</td><td><a href="https://github.com/AniketR10/loxx/releases/latest/download/checksums.txt">checksums.txt</a></td></tr>
+    </tbody>
+  </table></div>
+  <p>Then install it and add the hook to your shell (Linux x86-64 shown):</p>
+  <div class="cmd"><pre>mkdir -p ~/.local/bin && install -m 755 loxx-linux-amd64 ~/.local/bin/loxx && ~/.local/bin/loxx setup</pre></div>
+  <div class="note"><p>On a Mac, a file downloaded with a web browser is blocked until you allow it. Download it with <code>curl -fLO</code> instead, or run <code>xattr -d com.apple.quarantine loxx-darwin-arm64</code> first.</p></div>
+
+  <h2 id="verify">Check a download is genuine</h2>
+  <p>Compare the checksum (use <code>shasum -a 256 -c</code> on a Mac):</p>
+  <div class="cmd"><pre>grep loxx-linux-amd64 checksums.txt | sha256sum -c</pre></div>
+  <p>Every file also has a signed record of how GitHub built it. With the <a href="https://cli.github.com/">GitHub CLI</a>:</p>
+  <div class="cmd"><pre>gh attestation verify loxx-linux-amd64 --repo AniketR10/loxx</pre></div>
+
+  <h2 id="update">Update</h2>
+  <p>Run the install command again. It replaces the program and keeps your history and settings.</p>
+
+  <h2 id="uninstall">Uninstall</h2>
+  <div class="cmd"><pre>loxx uninstall</pre></div>
+  <p>This removes the block from your shell settings, leaving them exactly as they were, asks whether to delete your saved history, and deletes the program.</p>
+
+  <h2 id="source">Build from source</h2>
+  <p>You need Go 1.25 or newer, <code>make</code> and <code>curl</code>:</p>
+  <div class="cmd"><pre class="plain">git clone https://github.com/AniketR10/loxx
+cd loxx
+make build
+bin/loxx setup</pre></div>
+  <p>The first build downloads the search model (about 45&nbsp;MB) and checks its checksum. <code>go install</code> doesn't work, because the model isn't stored in git.</p>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>loxx is free and open source (MIT).</span>
+    <nav aria-label="Footer">
+      <a href="/docs/">Docs</a>
+      <a href="/download/">Download</a>
+      <a href="https://github.com/AniketR10/loxx">GitHub</a>
+      <a href="https://github.com/AniketR10/loxx/releases">Releases</a>
+      <a href="https://github.com/AniketR10/loxx/blob/main/SECURITY.md">Security</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

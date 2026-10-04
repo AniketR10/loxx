@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>loxx commands reference</title>
+<meta name="description" content="Every loxx command and option: search, status, forget, setup, uninstall, import, embed, add and the commands the shell hook uses.">
+<link rel="canonical" href="https://loxx.run/docs/commands/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+<meta name="color-scheme" content="light dark">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="loxx">
+<meta property="og:title" content="loxx commands reference">
+<meta property="og:description" content="Every loxx command and option: search, status, forget, setup, uninstall, import, embed, add and the commands the shell hook uses.">
+<meta property="og:url" content="https://loxx.run/docs/commands/">
+<meta property="og:image" content="https://loxx.run/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script src="/copy.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/">loxx<span>_</span></a>
+    <nav aria-label="Main">
+      <a href="/docs/" aria-current="page">Docs</a>
+      <a href="/download/">Download</a>
+      <a href="https://github.com/AniketR10/loxx">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap docs">
+  <nav aria-label="Docs">
+    <p class="label">Docs</p>
+    <ul>
+        <li><a href="/docs/">Getting started</a></li>
+        <li><a href="/docs/usage/">Searching</a></li>
+        <li><a href="/docs/commands/" aria-current="page">Commands</a></li>
+        <li><a href="/docs/privacy/">Privacy and secrets</a></li>
+        <li><a href="/docs/how-it-works/">How it works</a></li>
+        <li><a href="/docs/troubleshooting/">Troubleshooting and FAQ</a></li>
+    </ul>
+  </nav>
+  <article class="page">
+<h1>Commands</h1>
+<p>Plain <code>loxx</code> opens the search list. Everything else is <code>loxx &lt;command&gt;</code>. Add <code>-h</code> to any command for its options.</p>
+
+<h2 id="search"><code>loxx search</code></h2>
+<p>Finds commands by meaning and by keyword and prints them. All arguments together form the query.</p>
+<div class="cmd"><pre>loxx search [--limit N] &lt;query&gt;</pre></div>
+<p><code>--limit</code>: how many results to print (default 5).</p>
+
+<h2 id="status"><code>loxx status</code></h2>
+<p>Shows the version, where your history is, how many commands are saved, when the last one was, how many secrets were removed, whether every command is ready for search by meaning, and whether each shell has the hook.</p>
+
+<h2 id="forget"><code>loxx forget</code></h2>
+<p>Deletes commands and all their runs for good. The text is also wiped from the database files on disk.</p>
+<div class="cmd"><pre>loxx forget (--match TEXT | --last) [--yes]</pre></div>
+<div class="table"><table><tbody>
+  <tr><td><code>--last</code></td><td>forget the most recently saved command</td></tr>
+  <tr><td><code>--match TEXT</code></td><td>forget every command containing TEXT (case-sensitive)</td></tr>
+  <tr><td><code>--yes</code></td><td>don't ask for confirmation</td></tr>
+</tbody></table></div>
+
+<h2 id="setup"><code>loxx setup</code></h2>
+<p>Adds the hook to <code>~/.bashrc</code> and <code>~/.zshrc</code> (each only if that file exists or it is your login shell; on macOS only <code>~/.zshrc</code>), then loads your existing history once. The installer runs it for you. Safe to run again.</p>
+<p><code>--no-import</code>: don't load existing shell history.</p>
+
+<h2 id="uninstall"><code>loxx uninstall</code></h2>
+<p>Removes the hook from your shell settings, restoring them exactly, asks whether to delete your history, and removes the program if the installer put it there.</p>
+<div class="table"><table><tbody>
+  <tr><td><code>--delete-data</code></td><td>delete the history without asking</td></tr>
+  <tr><td><code>--keep-data</code></td><td>keep the history without asking</td></tr>
+</tbody></table></div>
+
+<h2 id="import"><code>loxx import</code></h2>
+<p>Loads existing shell history, with secrets removed just like new commands. With no files given, it loads <code>~/.bash_history</code> and <code>~/.zsh_history</code> if they exist. Each file is loaded only once.</p>
+<div class="table"><table><tbody>
+  <tr><td><code>--bash FILE</code></td><td>bash history file to load</td></tr>
+  <tr><td><code>--zsh FILE</code></td><td>zsh history file to load</td></tr>
+  <tr><td><code>--force</code></td><td>load again even if the file was loaded before</td></tr>
+</tbody></table></div>
+
+<h2 id="embed"><code>loxx embed</code></h2>
+<p>Prepares saved commands for search by meaning. loxx does this in the background after each command, so run it only if <code>loxx status</code> shows commands waiting.</p>
+<div class="cmd"><pre>loxx embed --pending</pre></div>
+<p><code>--workers N</code>: commands processed in parallel (default: half your CPU cores).</p>
+
+<h2 id="add"><code>loxx add</code></h2>
+<p>Saves a command by hand. Quote it so it is one argument.</p>
+<div class="cmd"><pre>loxx add [--cwd DIR] [--exit CODE] 'command'</pre></div>
+
+<h2 id="version"><code>loxx version</code></h2>
+<p>Prints the version.</p>
+
+<h2 id="internal">Used by the shell hook</h2>
+<p>You won't need these yourself:</p>
+<div class="table"><table><tbody>
+  <tr><td><code>loxx init bash|zsh</code></td><td>prints the shell code that saves your commands</td></tr>
+  <tr><td><code>loxx record</code></td><td>saves one finished command, in the background</td></tr>
+  <tr><td><code>loxx panel</code></td><td>opens the search list (the same as plain <code>loxx</code>)</td></tr>
+</tbody></table></div>
+    <nav class="next" aria-label="Previous and next page"><a href="/docs/usage/">← Searching</a><a href="/docs/privacy/">Privacy and secrets →</a></nav>
+  </article>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>loxx is free and open source (MIT).</span>
+    <nav aria-label="Footer">
+      <a href="/docs/">Docs</a>
+      <a href="/download/">Download</a>
+      <a href="https://github.com/AniketR10/loxx">GitHub</a>
+      <a href="https://github.com/AniketR10/loxx/releases">Releases</a>
+      <a href="https://github.com/AniketR10/loxx/blob/main/SECURITY.md">Security</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

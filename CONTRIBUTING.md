@@ -26,6 +26,8 @@ More checks, if you need them:
 | `make dist` | Builds the files for a release into `dist/`. |
 | `sh tools/installtest/run.sh` | Installs, uses and removes loxx on a clean Fedora (needs podman). |
 | `make dist && LOXX_RELEASE_URL=file://$PWD/dist sh tools/installtest/macos.sh` | The same for a new Mac user, in a temporary home folder. CI runs it on GitHub's Macs. |
+| `node tools/gametest.js` | Checks the home page game: every clue is findable by plausible descriptions, and the daily puzzle is fair. |
+| `python3 tools/sitecheck.py` | Checks the website in `site/`: links, page titles and descriptions, sitemap, no outside requests. Preview it with `cd site && python3 -m http.server`. |
 | `LOXX_BENCH_HOOKS=1 go test ./cmd/loxx -run TestHookOverhead -v` | How much loxx slows the terminal. |
 | `go run ./tools/eval --db DB --queries FILE` | How good search results are (see [docs/decisions](docs/decisions/)). |
 

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How loxx works: hybrid keyword and semantic history search</title>
+<meta name="description" content="How loxx captures shell commands without slowing your prompt, stores them in SQLite, and combines keyword search with an offline embedding model.">
+<link rel="canonical" href="https://loxx.run/docs/how-it-works/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+<meta name="color-scheme" content="light dark">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="loxx">
+<meta property="og:title" content="How loxx works: hybrid keyword and semantic history search">
+<meta property="og:description" content="How loxx captures shell commands without slowing your prompt, stores them in SQLite, and combines keyword search with an offline embedding model.">
+<meta property="og:url" content="https://loxx.run/docs/how-it-works/">
+<meta property="og:image" content="https://loxx.run/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script src="/copy.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/">loxx<span>_</span></a>
+    <nav aria-label="Main">
+      <a href="/docs/" aria-current="page">Docs</a>
+      <a href="/download/">Download</a>
+      <a href="https://github.com/AniketR10/loxx">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap docs">
+  <nav aria-label="Docs">
+    <p class="label">Docs</p>
+    <ul>
+        <li><a href="/docs/">Getting started</a></li>
+        <li><a href="/docs/usage/">Searching</a></li>
+        <li><a href="/docs/commands/">Commands</a></li>
+        <li><a href="/docs/privacy/">Privacy and secrets</a></li>
+        <li><a href="/docs/how-it-works/" aria-current="page">How it works</a></li>
+        <li><a href="/docs/troubleshooting/">Troubleshooting and FAQ</a></li>
+    </ul>
+  </nav>
+  <article class="page">
+<h1>How it works</h1>
+<p>loxx is one program of about 54&nbsp;MB, written in Go, with no other dependencies. Most of that size is the search model.</p>
+
+<h2 id="capture">Saving commands</h2>
+<p>The block the installer adds to your shell settings loads a small hook. After every command, the hook starts <code>loxx record</code> <em>in the background</em> with the command, its folder, exit code, start and end time. Your prompt doesn't wait for it: the measured cost is about 1–4&nbsp;ms per command.</p>
+<p>zsh has the hooks this needs built in. bash doesn't, so loxx includes <a href="https://github.com/rcaloras/bash-preexec">bash-preexec</a> (MIT). If you close a terminal while a command is still running, the command is saved as the shell exits, with its exit code unknown.</p>
+
+<h2 id="storage">Storage</h2>
+<p>Commands go into one SQLite database with a full-text index. Each distinct command is stored once, with every run of it (when, where, exit code, duration) recorded separately. That's how the list can show “14×” and filter by folder or failures.</p>
+
+<h2 id="meaning">Search by meaning</h2>
+<p>loxx has <a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2">all-MiniLM-L6-v2</a> built in, a small language model (Apache-2.0) that turns text into 384 numbers capturing its meaning. Commands with a similar purpose get similar numbers, so “compress a folder” lands near <code>tar -czvf</code>.</p>
+<p>The model runs inside loxx itself, written in plain Go, with no GPU, no Python and no internet. New commands are processed in the background at low priority, a few moments after you run them.</p>
+
+<h2 id="ranking">Combining the two searches</h2>
+<p>Each search runs a keyword search and a meaning search, then merges the two ranked lists (reciprocal rank fusion). Keyword matches appear instantly as you type; matches by meaning follow after a short pause. If meanings aren't ready yet, keyword search still works.</p>
+<p>The weights were tuned and measured on a real shell history, with questions like “undo the last commit, keep the changes” and fragments like <code>port-forw</code>.</p>
+
+<h2 id="speed">Speed</h2>
+<div class="table"><table>
+  <thead><tr><th>What</th><th>Measured</th></tr></thead>
+  <tbody>
+    <tr><td>Added to each command</td><td>about 1–4&nbsp;ms</td></tr>
+    <tr><td>Search list appears</td><td>about 30&nbsp;ms</td></tr>
+    <tr><td>Keyword results, 100,000 commands</td><td>under 50&nbsp;ms</td></tr>
+    <tr><td>Meaning results, 10,000 commands</td><td>about 0.2&nbsp;s</td></tr>
+  </tbody>
+</table></div>
+
+<h2 id="open">Open source</h2>
+<p>loxx is MIT-licensed. The code, the reasons behind each design choice, and how the model was picked are all on <a href="https://github.com/AniketR10/loxx">GitHub</a>.</p>
+    <nav class="next" aria-label="Previous and next page"><a href="/docs/privacy/">← Privacy and secrets</a><a href="/docs/troubleshooting/">Troubleshooting and FAQ →</a></nav>
+  </article>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>loxx is free and open source (MIT).</span>
+    <nav aria-label="Footer">
+      <a href="/docs/">Docs</a>
+      <a href="/download/">Download</a>
+      <a href="https://github.com/AniketR10/loxx">GitHub</a>
+      <a href="https://github.com/AniketR10/loxx/releases">Releases</a>
+      <a href="https://github.com/AniketR10/loxx/blob/main/SECURITY.md">Security</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

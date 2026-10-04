@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy and secrets in loxx</title>
+<meta name="description" content="What loxx saves, where it keeps it, and how it removes passwords, API keys and tokens from your shell history before saving. Works fully offline.">
+<link rel="canonical" href="https://loxx.run/docs/privacy/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+<meta name="color-scheme" content="light dark">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="loxx">
+<meta property="og:title" content="Privacy and secrets in loxx">
+<meta property="og:description" content="What loxx saves, where it keeps it, and how it removes passwords, API keys and tokens from your shell history before saving. Works fully offline.">
+<meta property="og:url" content="https://loxx.run/docs/privacy/">
+<meta property="og:image" content="https://loxx.run/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script src="/copy.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/">loxx<span>_</span></a>
+    <nav aria-label="Main">
+      <a href="/docs/" aria-current="page">Docs</a>
+      <a href="/download/">Download</a>
+      <a href="https://github.com/AniketR10/loxx">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap docs">
+  <nav aria-label="Docs">
+    <p class="label">Docs</p>
+    <ul>
+        <li><a href="/docs/">Getting started</a></li>
+        <li><a href="/docs/usage/">Searching</a></li>
+        <li><a href="/docs/commands/">Commands</a></li>
+        <li><a href="/docs/privacy/" aria-current="page">Privacy and secrets</a></li>
+        <li><a href="/docs/how-it-works/">How it works</a></li>
+        <li><a href="/docs/troubleshooting/">Troubleshooting and FAQ</a></li>
+    </ul>
+  </nav>
+  <article class="page">
+<h1>Privacy and secrets</h1>
+<p>Your shell history is private, so loxx is built to keep it that way.</p>
+
+<h2 id="offline">Nothing leaves your computer</h2>
+<p>loxx never uses the internet. Search by meaning uses a language model built into the program, so there's no account, no API key and no cloud service. It works the same on a plane.</p>
+
+<h2 id="what">What is saved, and where</h2>
+<p>For each command: the command text, the folder it ran in (and its git repository, if any), the exit code, when it started, how long it took, which terminal session it came from, and the computer's name.</p>
+<p>Everything is in one SQLite file, <code>~/.local/share/loxx/history.db</code>. Only you can read it (permissions <code>600</code>, folder <code>700</code>). Nothing is ever sent anywhere.</p>
+
+<h2 id="secrets">Secrets are removed before saving</h2>
+<p>Before a command is written to disk, loxx replaces anything that looks like a secret with a placeholder that names its kind:</p>
+<div class="term"><pre>mysql -u me -p<span class="red">&lt;REDACTED:password&gt;</span>
+export GITHUB_TOKEN=<span class="red">&lt;REDACTED:github-token&gt;</span>
+curl -H "Authorization: Bearer <span class="red">&lt;REDACTED:auth-header&gt;</span>"</pre></div>
+<p>It recognizes:</p>
+<ul>
+  <li><strong>Known tokens:</strong> GitHub, GitLab, AWS, Google, OpenAI, Anthropic, Hugging Face, Slack, Stripe, SendGrid, DigitalOcean, npm and PyPI keys, JWTs, and private key blocks.</li>
+  <li><strong>Secrets by position:</strong> passwords in flags like <code>-p</code> and <code>--password</code>, in URLs (<code>user:pass@host</code>), in <code>Authorization</code>, API-key and cookie headers, in query strings and JSON, and values of variables named like <code>*_TOKEN</code>, <code>*_SECRET</code> or <code>*_PASSWORD</code>.</li>
+  <li><strong>Random-looking strings</strong> long enough to be a key, even without a telling name.</li>
+</ul>
+<p>The same happens to history loaded from your old <code>~/.bash_history</code> and <code>~/.zsh_history</code>. <code>loxx status</code> shows how many secrets were removed.</p>
+
+<h2 id="limits">What loxx can't catch</h2>
+<p>loxx only removes secrets it recognizes. A short, ordinary-looking password typed as a plain argument may not look like a secret. For those:</p>
+<ul>
+  <li><strong>Start the command with a space.</strong> loxx won't save it. Your shell's own history skips it too if it's set to (bash: <code>HISTCONTROL=ignorespace</code>, zsh: <code>setopt HIST_IGNORE_SPACE</code>).</li>
+  <li><strong>Delete it afterwards:</strong> <code>loxx forget --last</code>, or <code>loxx forget --match 'part of it'</code>.</li>
+</ul>
+<p>The folder name and computer name are saved as they are.</p>
+
+<h2 id="forget">Forgetting is permanent</h2>
+<p><code>loxx forget</code> deletes the command, every run of it, and its search data, then wipes the freed space in the database files. A plain database delete would leave the text readable on disk for a while.</p>
+
+<h2 id="report">Found a secret loxx missed?</h2>
+<p>Please report it privately, not in a public issue, as described in the <a href="https://github.com/AniketR10/loxx/blob/main/SECURITY.md">security policy</a>. Never send the real secret: describe its shape with a made-up one.</p>
+    <nav class="next" aria-label="Previous and next page"><a href="/docs/commands/">← Commands</a><a href="/docs/how-it-works/">How it works →</a></nav>
+  </article>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>loxx is free and open source (MIT).</span>
+    <nav aria-label="Footer">
+      <a href="/docs/">Docs</a>
+      <a href="/download/">Download</a>
+      <a href="https://github.com/AniketR10/loxx">GitHub</a>
+      <a href="https://github.com/AniketR10/loxx/releases">Releases</a>
+      <a href="https://github.com/AniketR10/loxx/blob/main/SECURITY.md">Security</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

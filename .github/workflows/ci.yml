@@ -45,6 +45,11 @@ jobs:
         run: make check-static
       - name: Smoke test
         run: ./bin/loxx version
+      - name: Check the website
+        if: matrix.runner == 'ubuntu-latest'
+        run: |
+          python3 tools/sitecheck.py
+          node tools/gametest.js
       # The Linux version of this check runs in a fresh Fedora container
       # (tools/installtest/run.sh); a macOS runner is already a fresh Mac.
       - name: Install check (macOS, as a fresh zsh user)
