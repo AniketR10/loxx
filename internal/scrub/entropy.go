@@ -21,12 +21,8 @@ var entropyRule = rule{
 	skip: func(s string, m []int) bool { return !looksRandom(s[m[0]:m[1]]) },
 }
 
-// looksRandom reports whether tok looks like a generated secret rather than a
-// word, path, identifier, hash or UUID.
-//
-// Hex-only strings are deliberately skipped: git SHAs, digests and UUIDs are
-// far more common in commands than hex secrets, which usually appear as
-// KEY=value and are caught by the structural rules instead.
+// looksRandom reports whether tok looks like a generated secret. Hex-only
+// strings are skipped: hashes and UUIDs are far more common.
 func looksRandom(tok string) bool {
 	tok = strings.TrimRight(tok, "=")
 	if len(tok) < minRandomLen {
@@ -73,9 +69,7 @@ func shannonEntropy(s string) float64 {
 	return h
 }
 
-// classChangeFactor is the fraction of adjacent character pairs whose class
-// (upper, lower, digit, other) differs. Random base62/base64 text scores
-// around 0.6; words, CamelCase identifiers and paths score far lower.
+// classChangeFactor is the share of adjacent chars whose class differs.
 func classChangeFactor(s string) float64 {
 	changes := 0
 	for i := 1; i < len(s); i++ {

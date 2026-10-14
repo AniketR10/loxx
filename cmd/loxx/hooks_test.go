@@ -25,9 +25,7 @@ type testShell struct {
 	args []string
 }
 
-// shells are the interactive shells the hooks support on this system (see
-// setupShells: zsh only on macOS), started without any rc files so only the
-// loxx hook is loaded.
+// shells under test (zsh only on macOS), started without rc files.
 var shells = slices.DeleteFunc([]testShell{
 	{"bash", []string{"--norc", "--noprofile", "-i"}},
 	{"zsh", []string{"-f", "-i"}},
@@ -36,9 +34,7 @@ var shells = slices.DeleteFunc([]testShell{
 // ctrlC typed into a session interrupts the running command.
 const ctrlC = "\x03"
 
-// TestShellHooks runs real interactive bash and zsh sessions with the hook
-// from `loxx init` loaded, inside a pseudo-terminal so they behave as if a
-// person were typing, then checks what was recorded.
+// TestShellHooks types into real bash and zsh in a pty and checks what was recorded.
 func TestShellHooks(t *testing.T) {
 	bin := buildLoc(t)
 	for _, sh := range shells {
@@ -106,18 +102,14 @@ func TestShellHooks(t *testing.T) {
 	}
 }
 
-// TestShellHooksHangup closes the terminal while a command runs, as closing a
-// terminal window does. The shell dies without showing another prompt, so
-// the command must be recorded by the exit hook, with its exit code unknown.
+// TestShellHooksHangup: closing the terminal mid-command still records it.
 func TestShellHooksHangup(t *testing.T) {
 	bin := buildLoc(t)
 	for _, sh := range shells {
 		t.Run(sh.name, func(t *testing.T) {
 			s := startShell(t, sh.name, sh.args)
 			s.typeLines(`eval "$('`+bin+`' init `+sh.name+`)"`, `echo before-hangup`, `sleep 30`)
-			// Closing a terminal window makes the kernel send SIGHUP to the
-			// shell. (Closing s.master here would not: Go defers the close
-			// until the goroutine blocked reading it returns.)
+			// SIGHUP directly: closing s.master is deferred while a read blocks.
 			if err := s.cmd.Process.Signal(syscall.SIGHUP); err != nil {
 				t.Fatal(err)
 			}
@@ -162,9 +154,7 @@ func TestShellHooksRapidFire(t *testing.T) {
 	}
 }
 
-// TestHookOverhead measures how much the hook slows the prompt: the time per
-// command in a burst of typed-ahead commands, with and without the hook, and
-// what one background `loxx record` costs. Opt-in: LOXX_BENCH_HOOKS=1.
+// TestHookOverhead measures the hook's per-command cost (LOXX_BENCH_HOOKS=1).
 func TestHookOverhead(t *testing.T) {
 	if os.Getenv("LOXX_BENCH_HOOKS") == "" {
 		t.Skip("set LOXX_BENCH_HOOKS=1 to measure")
@@ -252,9 +242,7 @@ func startShell(t *testing.T, shell string, args []string) *session {
 	return s
 }
 
-// startPTY starts name in a new 80x24 pseudo-terminal, as its controlling
-// terminal, with loxx pointed at dbPath. Its stdout goes to stdout when given,
-// otherwise to the terminal.
+// startPTY runs name in a new 80x24 pty with loxx using dbPath.
 func startPTY(t *testing.T, dir, dbPath string, stdout io.Writer, name string, args ...string) *session {
 	t.Helper()
 	s := &session{t: t, dir: dir, dbPath: dbPath, copied: make(chan struct{})}

@@ -14,9 +14,7 @@ type tensor struct {
 	data  []float32
 }
 
-// readSafetensors parses a safetensors file (8-byte little-endian header
-// length, JSON header, raw little-endian data) and returns its F16 and F32
-// tensors as float32. Tensors of other dtypes are skipped.
+// readSafetensors returns a safetensors file's F16/F32 tensors as float32.
 func readSafetensors(b []byte) (map[string]tensor, error) {
 	if len(b) < 8 {
 		return nil, fmt.Errorf("safetensors: file too short")
@@ -71,9 +69,7 @@ func readSafetensors(b []byte) (map[string]tensor, error) {
 				t.data[i] = math.Float32frombits(binary.LittleEndian.Uint32(raw[4*i:]))
 			}
 		default:
-			// Non-float tensors (e.g. the I64 position_ids buffer in the
-			// original checkpoint) are not weights; a model that needs one
-			// fails in Load with "missing tensor".
+			// not weights (e.g. I64 position_ids)
 			continue
 		}
 		tensors[name] = t
@@ -81,9 +77,7 @@ func readSafetensors(b []byte) (map[string]tensor, error) {
 	return tensors, nil
 }
 
-// f16Table maps every half-precision bit pattern to its float32 value. Model
-// loading converts ~23M weights; a table lookup was 1.4x faster than
-// converting each one (same-run A/B, 2026-09-27), cutting load to ~70 ms.
+// f16Table maps every f16 bit pattern to float32 (1.4x faster loading).
 var f16Table = sync.OnceValue(func() *[1 << 16]float32 {
 	var t [1 << 16]float32
 	for h := range t {

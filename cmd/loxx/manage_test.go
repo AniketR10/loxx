@@ -8,9 +8,7 @@ import (
 	"testing"
 )
 
-// fakeHome points every loxx path at a fresh temporary home directory, and
-// makes setup behave as on Linux, where both shells are set up, whatever
-// system the tests run on (TestSetupOnMacOS checks macOS).
+// fakeHome points loxx at a temp home and makes setup act as on Linux.
 func fakeHome(t *testing.T, loginShell string) string {
 	t.Helper()
 	pretendOS(t, "linux")
@@ -82,10 +80,14 @@ func TestSetupStatusUninstall(t *testing.T) {
 	}
 
 	stdout, _ := runOK(t, "status")
-	for _, want := range []string{"2 unique", "bash:", "hook installed", "this shell: hook not active"} {
+	for _, want := range []string{"2 unique", "bash:", "hook installed", "suggestions: on (zsh: as you type; bash:", "this shell: hook not active"} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("status output lacks %q:\n%s", want, stdout)
 		}
+	}
+	t.Setenv("LOXX_SUGGEST", "0")
+	if stdout, _ = runOK(t, "status"); !strings.Contains(stdout, "suggestions: off (LOXX_SUGGEST=0)") {
+		t.Errorf("status with suggestions off:\n%s", stdout)
 	}
 	t.Setenv("LOXX_HOOK", "bash")
 	if stdout, _ = runOK(t, "status"); !strings.Contains(stdout, "this shell: hook active (bash)") {
@@ -131,9 +133,7 @@ func TestUninstallKeepsDataAndForeignBinary(t *testing.T) {
 	}
 }
 
-// TestSetupOnMacOS checks that on macOS setup adds the hook to ~/.zshrc only,
-// never to ~/.bashrc (macOS's bash is too old for it), and tells someone
-// whose login shell is bash how to switch.
+// TestSetupOnMacOS: only ~/.zshrc is set up; bash users are told to switch.
 func TestSetupOnMacOS(t *testing.T) {
 	home := fakeHome(t, "zsh")
 	pretendOS(t, "darwin")
@@ -217,10 +217,7 @@ func TestForgetCommand(t *testing.T) {
 	}
 }
 
-// TestSetupOnFreshMachineNeverDoubleCounts reproduces what the fresh-Fedora
-// container test found: with no history file at the first setup, bash writes
-// one later (on exit) containing commands the hook already recorded live, and
-// a later setup (e.g. re-running the installer) must not import them again.
+// A history file written after the first setup must not be imported later.
 func TestSetupOnFreshMachineNeverDoubleCounts(t *testing.T) {
 	home := fakeHome(t, "bash")
 	write(t, filepath.Join(home, ".bashrc"), "# fresh\n")

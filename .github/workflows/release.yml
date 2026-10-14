@@ -1,8 +1,6 @@
 
 name: Release
-# Pushing a tag like v0.1.0 publishes a release. A tag with a suffix, like
-# v0.1.0-rc1, is published as a pre-release: it never becomes "latest", so
-# the install URL keeps pointing at the last real release.
+# A v* tag publishes a release; a suffixed tag (v0.1.0-rc1) is a pre-release.
 on:
   push:
     tags: ['v*']

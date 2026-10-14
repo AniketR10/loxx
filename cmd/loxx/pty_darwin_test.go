@@ -8,9 +8,7 @@ import (
 	"unsafe"
 )
 
-// openPTY opens a new pseudo-terminal: master is the side the test types into
-// and reads from, tty is the terminal the program runs in. macOS has no
-// TIOCGPTN; it names the terminal with TIOCPTYGNAME instead.
+// openPTY opens a pty; macOS names it with TIOCPTYGNAME (no TIOCGPTN).
 func openPTY() (master, tty *os.File, err error) {
 	master, err = os.OpenFile("/dev/ptmx", os.O_RDWR|syscall.O_NOCTTY, 0)
 	if err != nil {

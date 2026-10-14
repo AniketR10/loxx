@@ -22,19 +22,7 @@ type Params struct {
 	RRFK           float64
 }
 
-// DefaultParams are the weights loxx ships with, chosen on two local eval sets
-// drawn from real history (2026-09-27, see ROADMAP Phase 3):
-//
-//   - 40 natural-language questions: semantic-only 0.55/0.80/0.65
-//     (top-1/top-5/MRR); these defaults match it exactly, because an
-//     AND-query of a sentence rarely matches any command, leaving semantic
-//     ranking in charge.
-//   - 25 typed fragments ("stash pop", "port-forward"): keyword 0.98 MRR,
-//     semantic 0.91, these defaults 1.00.
-//
-// Neighbouring settings (k=60 kw=0.25, k=20 kw=0.5) score the same, so this
-// is a flat optimum rather than a lucky point. OR-mode keywords and the
-// earlier equal-weight default scored lower on both sets.
+// DefaultParams were tuned on two eval sets from real history (ROADMAP Phase 3).
 var DefaultParams = Params{
 	KeywordMode:    store.MatchAll,
 	KeywordWeight:  0.5,
@@ -42,9 +30,7 @@ var DefaultParams = Params{
 	RRFK:           60,
 }
 
-// Searcher answers queries over one history database. The embedding model
-// and the stored vectors load in the background as soon as it is created, so
-// keyword search can run meanwhile.
+// Searcher searches one database; the model loads in the background meanwhile.
 type Searcher struct {
 	db     *store.DB
 	loaded chan struct{}
@@ -138,9 +124,8 @@ func (s *Searcher) Recent(ctx context.Context, limit int, f store.Filter) ([]sto
 	return s.db.Results(ctx, ids)
 }
 
-// semantic returns the ids of the k stored vectors closest to query among
-// allowed (nil means all), or nil when semantic search is unavailable (core
-// principle P7: fall back to keywords instead of failing).
+// semantic returns the k closest commands among allowed (nil: all), or nil
+// without the model, so keywords still work (P7).
 func (s *Searcher) semantic(query string, allowed map[int64]bool, k int) []int64 {
 	if s.SemanticErr() != nil || len(s.ids) == 0 {
 		return nil

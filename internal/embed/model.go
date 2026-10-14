@@ -179,13 +179,8 @@ func (m *Model) Embed(text string) []float32 {
 	return meanPoolNormalize(x, n)
 }
 
-// apply computes y[n][out] = x[n][in]·Wᵀ + b.
-//
-// Each weight row is read once and reused for all n tokens, four at a time
-// (dot4). It is deliberately simple and single-threaded: on the dev machine
-// (i7-1255U, 2 performance + 8 efficiency cores) cache tiling, an 8-accumulator
-// kernel, GOAMD64=v3 and splitting one multiply across cores were each measured
-// A/B and none helped (several hurt). See ROADMAP Phase 2 measurements.
+// apply computes y = x·Wᵀ + b. Tiling, wider kernels and threading were
+// measured and didn't help (ROADMAP Phase 2).
 func (l linear) apply(x []float32, n int, y []float32) {
 	in, out := l.in, l.out
 	for o := 0; o < out; o++ {
@@ -205,9 +200,7 @@ func (l linear) apply(x []float32, n int, y []float32) {
 	}
 }
 
-// dot4 returns the dot products of w with the four consecutive rows of x
-// (x holds 4*len(w) values). Four accumulators is the sweet spot: an 8-way
-// variant (2 weight rows x 4 tokens) measured 2.8x slower in Go.
+// dot4 returns w's dot product with four consecutive rows of x.
 func dot4(x, w []float32) (s0, s1, s2, s3 float32) {
 	d := len(w)
 	x0, x1, x2, x3 := x[:d], x[d:2*d], x[2*d:3*d], x[3*d:4*d]

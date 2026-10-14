@@ -129,9 +129,7 @@ func runEmbed(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// embedAll embeds batch using up to workers goroutines. Parallelism is across
-// commands: on the dev machine independent work scaled ~6x on 12 threads,
-// while splitting a single embedding did not help (see ROADMAP Phase 2).
+// embedAll embeds batch with up to workers goroutines, one command each.
 func embedAll(model *embed.Model, batch []store.PendingCommand, workers int) []store.Embedding {
 	out := make([]store.Embedding, len(batch))
 	jobs := make(chan int)
@@ -157,10 +155,8 @@ func embedAll(model *embed.Model, batch []store.PendingCommand, workers int) []s
 // background embed run instead of loading the model for each.
 const backgroundEmbedWait = 2 * time.Second
 
-// startBackgroundEmbed launches `loxx embed --pending` detached from the
-// terminal at low CPU priority, unless an embed already holds the lock (it
-// will pick up new commands itself). Setting LOXX_BACKGROUND_EMBED=0 turns this
-// off; tests must, since os.Executable is then the test binary.
+// startBackgroundEmbed runs `loxx embed --pending` detached at low priority,
+// unless one is running. Off with LOXX_BACKGROUND_EMBED=0.
 func startBackgroundEmbed(dbPath string) error {
 	if os.Getenv("LOXX_BACKGROUND_EMBED") == "0" {
 		return nil

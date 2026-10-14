@@ -18,12 +18,8 @@ type Entry struct {
 	Duration  *time.Duration // only zsh's extended history records it
 }
 
-// ParseBash reads a bash history file.
-//
-// With HISTTIMEFORMAT set, bash writes "#<epoch seconds>" before each entry,
-// and the lines up to the next timestamp form one command (bash writes
-// multi-line commands that way). Without timestamps there is no way to tell a
-// multi-line command from separate ones, so every line is its own command.
+// ParseBash reads a bash history file. Without timestamps every line is a
+// command, since multi-line ones can't be told apart.
 func ParseBash(r io.Reader) ([]Entry, error) {
 	var (
 		entries []Entry
@@ -72,13 +68,8 @@ func bashTimestamp(line string) (int64, bool) {
 	return sec, err == nil
 }
 
-// ParseZsh reads a zsh history file, plain or EXTENDED_HISTORY
-// (": <start>:<elapsed>;<command>").
-//
-// zsh stores a newline inside a command as a backslash at the end of the
-// line, and stores the bytes 0x00 and 0x83-0xA2 (common inside UTF-8
-// characters) "metafied": the byte 0x83 followed by the original byte XOR
-// 0x20. Both are undone here.
+// ParseZsh reads a zsh history file (plain or EXTENDED_HISTORY), undoing
+// line continuations and metafied bytes.
 func ParseZsh(r io.Reader) ([]Entry, error) {
 	var (
 		entries []Entry

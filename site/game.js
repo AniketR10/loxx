@@ -1,6 +1,4 @@
-// Lost Commands: the logic of the home page game, kept apart from the page so
-// tools/gametest.js can check every clue is findable. A made-up history, a
-// search that works like loxx's, and today's puzzle.
+// Lost Commands game logic, kept separate so tools/gametest.js can test it.
 const LOXX_GAME = (() => {
   // [command, folder, hours since it last ran, runs, exit code, what it does]
   const HISTORY = [
@@ -74,9 +72,8 @@ const LOXX_GAME = (() => {
   const stem = (w) => w.slice(0, 5);
   const wordsOf = (q) => q.toLowerCase().split(/[^a-z0-9.:~/_-]+/).filter((w) => w.length > 1 && !SKIP.has(w));
 
-  // Like loxx: commands containing all the words first, then the closest in
-  // meaning (here: a hand-written word list per command; the real loxx uses a
-  // language model). The most recent wins a tie. Up to `limit` results.
+  // Keyword matches first, then a hand-written meaning list (the real loxx
+  // uses a model); newest wins ties.
   function search(q, withMeaning = true, limit = 4) {
     const words = wordsOf(q);
     const byAge = HISTORY.map((h, i) => i).sort((a, b) => HISTORY[a][2] - HISTORY[b][2]);

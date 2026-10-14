@@ -1,6 +1,4 @@
-// Lost Commands, the home page game: five memories a day, found by searching
-// a made-up history the way loxx does. The logic and data are in game.js;
-// this file runs the board.
+// Lost Commands: the game board (logic in game.js).
 (() => {
   const G = LOXX_GAME;
   const $ = (id) => document.getElementById(id);

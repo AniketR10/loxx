@@ -1,6 +1,4 @@
-// Package embed turns shell commands into 384-dimensional vectors with
-// sentence-transformers/all-MiniLM-L6-v2, implemented in pure Go. The model
-// weights (f16) and vocabulary are compiled into the binary.
+// Package embed is a pure-Go all-MiniLM-L6-v2 with its weights compiled in.
 package embed
 
 import _ "embed"

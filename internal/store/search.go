@@ -22,13 +22,9 @@ type Result struct {
 type MatchMode int
 
 const (
-	// MatchAll requires every word. It is what search uses: precise for
-	// typed fragments, and it matches nothing for most sentences, which
-	// leaves those to semantic ranking.
+	// MatchAll requires every word (what search uses).
 	MatchAll MatchMode = iota
-	// MatchAny requires at least one word and lets BM25 rank by how many and
-	// how rare. It scored lower than MatchAll in hybrid search on both eval
-	// sets; kept for the eval harness.
+	// MatchAny requires one word; kept for the eval harness.
 	MatchAny
 )
 
@@ -115,9 +111,7 @@ func (db *DB) Results(ctx context.Context, ids []int64) ([]Result, error) {
 	return results, nil
 }
 
-// ftsQuery turns free text into an FTS5 query where every word is a prefix
-// match, joined by AND or OR. Splitting on anything but letters and digits
-// mirrors the unicode61 tokenizer and keeps FTS5 syntax out of the query.
+// ftsQuery turns text into an FTS5 query of prefix matches.
 func ftsQuery(q string, mode MatchMode) string {
 	words := strings.FieldsFunc(q, func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsNumber(r)

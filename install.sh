@@ -1,17 +1,6 @@
 #!/bin/sh
-# loxx installer:
-#
-#   curl -fsSL https://github.com/AniketR10/loxx/releases/latest/download/install.sh | sh
-#
-# Downloads the loxx binary for this machine (Linux or macOS), checks its
-# SHA-256 against the release's checksums.txt, installs it to
-# ~/.local/bin/loxx and runs `loxx setup`, which adds the hook to your shell's
-# rc file and imports your existing history. Needs no root. `loxx uninstall`
-# undoes all of it.
-#
-# Environment:
-#   LOXX_RELEASE_URL  where to download from (default: the latest GitHub release)
-#   LOXX_BIN_DIR      where to install the binary (default: ~/.local/bin)
+# loxx installer: downloads and verifies the binary, installs it to
+# ~/.local/bin and runs `loxx setup`. Env: LOXX_RELEASE_URL, LOXX_BIN_DIR.
 set -eu
 
 release_url=${LOXX_RELEASE_URL:-https://github.com/AniketR10/loxx/releases/latest/download}

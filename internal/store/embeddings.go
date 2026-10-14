@@ -53,9 +53,7 @@ func (db *DB) PendingEmbeddings(ctx context.Context, modelID string, limit int) 
 	return pending, rows.Err()
 }
 
-// SaveEmbeddings stores vectors from modelID in one transaction, replacing any
-// older vector for the same command. Commands deleted in the meantime (e.g.
-// by `loxx forget`) are skipped rather than failing the batch.
+// SaveEmbeddings stores vectors in one transaction, skipping deleted commands.
 func (db *DB) SaveEmbeddings(ctx context.Context, modelID string, es []Embedding) error {
 	tx, err := db.sql.BeginTx(ctx, nil)
 	if err != nil {
@@ -79,9 +77,7 @@ func (db *DB) SaveEmbeddings(ctx context.Context, modelID string, es []Embedding
 	return tx.Commit()
 }
 
-// EmbeddingMatrix returns every stored vector from modelID as one contiguous
-// row-major matrix: row i (vectors[i*dims:(i+1)*dims]) belongs to ids[i].
-// dims is 0 when there are no vectors.
+// EmbeddingMatrix returns all vectors from modelID, row-major; row i is ids[i].
 func (db *DB) EmbeddingMatrix(ctx context.Context, modelID string) (ids []int64, vectors []float32, dims int, err error) {
 	var n int
 	if err := db.sql.QueryRowContext(ctx,

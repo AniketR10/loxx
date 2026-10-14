@@ -12,10 +12,8 @@ type scored struct {
 	score float32
 }
 
-// topKByDot returns the k rows of vectors (row-major, dims wide, row i
-// belonging to ids[i]) with the highest dot product with q, best first,
-// considering only ids in allowed (nil means all). The stored vectors and q
-// are unit length, so the dot product is the cosine similarity.
+// topKByDot returns the k ids closest to q among allowed (nil: all); vectors
+// are unit length, so the dot product is the cosine.
 func topKByDot(q []float32, ids []int64, vectors []float32, dims, k int, allowed map[int64]bool) []scored {
 	if k <= 0 || len(ids) == 0 {
 		return nil

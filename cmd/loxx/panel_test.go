@@ -12,27 +12,21 @@ import (
 	"time"
 )
 
-// TestLocFunction types `loxx` in real bash and zsh sessions, picks a command
-// in the panel, then runs what the shell prepared: in zsh the next prompt is
-// pre-filled (Enter runs it); in bash it is one Up arrow away. The chosen
-// command prints "picked-42" only when it actually runs.
+// TestLocFunction picks a command with `loxx` in real bash and zsh, then runs it.
 func TestLocFunction(t *testing.T) {
 	bin := buildLoc(t)
 	for _, sh := range shells {
 		t.Run(sh.name, func(t *testing.T) {
 			s := startShell(t, sh.name, sh.args)
-			use := "\r" // zsh: the prompt already holds the command
-			if sh.name == "bash" {
-				use = "\x1b[A\r" // bash: Up arrow fetches it from history
-			}
-			s.typeLines(
-				`eval "$('`+bin+`' init `+sh.name+`)"`,
-				`loxx add 'echo picked-$((40+2))'`,
-				// A cancelled panel must leave nothing behind.
-				"loxx", ctrlC,
-				`echo after-cancel-$((1+1))`,
-				"loxx",
-			)
+			use := "\r" // the prompt already holds the command (zsh: print -z; bash: loxx's Enter)
+			// Enter is typed as a terminal sends it ("\r"): bash's loxx Enter
+			// handles only that key, so a pasted "\n" never opens the list.
+			enter := func(line string) { s.key(line+"\r", 300*time.Millisecond) }
+			s.typeLines(`eval "$('`+bin+`' init `+sh.name+`)"`, `loxx add 'echo picked-$((40+2))'`)
+			enter("loxx")
+			s.key(ctrlC, 300*time.Millisecond) // a cancelled panel must leave nothing behind
+			enter(`echo after-cancel-$((1+1))`)
+			enter("loxx")
 			for _, k := range []string{"picked", "\r", use} {
 				if _, err := s.master.WriteString(k); err != nil {
 					t.Fatal(err)

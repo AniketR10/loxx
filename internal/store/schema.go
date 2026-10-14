@@ -55,9 +55,7 @@ CREATE TRIGGER commands_fts_update AFTER UPDATE OF text ON commands BEGIN
 END;
 `,
 
-	// v2: one embedding per command. model_id records which model produced
-	// the vector, so after a model change every command counts as pending
-	// again and vectors from different models are never compared.
+	// v2: model_id keeps vectors from different models apart.
 	`
 CREATE TABLE embeddings (
 	command_id INTEGER PRIMARY KEY REFERENCES commands(id) ON DELETE CASCADE,
@@ -75,9 +73,7 @@ CREATE TABLE embeddings (
 // SchemaVersion is the schema version this build of loxx writes.
 var SchemaVersion = len(migrations)
 
-// migrate brings the database up to SchemaVersion. The version is first read
-// without a write lock, so the common already-migrated case stays cheap for
-// the many short-lived loxx processes that open the database.
+// migrate upgrades the schema; the version is read without a write lock first.
 func migrate(ctx context.Context, db *sql.DB) error {
 	if v, err := schemaVersion(ctx, db); err != nil {
 		return fmt.Errorf("reading schema version: %w", err)

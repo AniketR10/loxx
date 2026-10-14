@@ -15,19 +15,14 @@ import (
 // words become a single [UNK].
 const maxWordRunes = 100
 
-// Tokenizer is an uncased BERT WordPiece tokenizer. It reproduces the Hugging
-// Face fast tokenizer used by sentence-transformers: BertNormalizer (clean
-// text, isolate CJK characters, strip accents, lowercase), BertPreTokenizer
-// (split on whitespace and punctuation), WordPiece, then [CLS] ... [SEP].
+// Tokenizer is an uncased BERT WordPiece tokenizer matching Hugging Face's.
 type Tokenizer struct {
 	vocab         map[string]int32
 	unk, cls, sep int32
 	maxLen        int // including [CLS] and [SEP]
 }
 
-// NewTokenizer builds a tokenizer from a vocab.txt file (one token per line,
-// the line number is the id). maxLen is the maximum sequence length,
-// including the [CLS] and [SEP] tokens.
+// NewTokenizer reads vocab.txt; maxLen includes [CLS] and [SEP].
 func NewTokenizer(vocabTxt []byte, maxLen int) (*Tokenizer, error) {
 	vocab := make(map[string]int32, 32000)
 	sc := bufio.NewScanner(bytes.NewReader(vocabTxt))

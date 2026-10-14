@@ -46,7 +46,27 @@
   </nav>
   <article class="page">
 <h1>Searching</h1>
-<p>Type <code>loxx</code> with no arguments to open the search list right under your prompt.</p>
+<p>You don't need to type <code>loxx</code> first: type at your normal prompt.</p>
+
+<h2 id="as-you-type">zsh: suggestions as you type</h2>
+<p>Type what you want to do, or part of a command, and stop typing for a moment. Matching commands appear under the line:</p>
+<div class="term" role="img" aria-label="At the zsh prompt, the typed line “undo my last commit” with two matching commands listed under it.">
+<pre><span class="dim">~/code $</span> undo my last commit<span class="cursor"> </span>
+  git reset --soft HEAD~1  <span class="dim">~/code/shop · 3 days ago</span>
+  git revert HEAD  <span class="dim">~/code/api · 2 weeks ago</span></pre>
+</div>
+<ul>
+  <li><strong>Nothing is chosen</strong> until you press <kbd>↓</kbd>. Then <kbd>↑</kbd> <kbd>↓</kbd> move, and <kbd>Enter</kbd> puts the command in your prompt, ready to edit. It never runs by itself.</li>
+  <li><kbd>Enter</kbd> without <kbd>↓</kbd> runs what you typed, as usual. Keep typing to close the list.</li>
+  <li>Commands containing your words show after about 0.3&nbsp;s. Commands that do what you described follow after about 1&nbsp;s: that search uses the language model, so it only runs once you've stopped typing, never on every key.</li>
+  <li>Lines shorter than 3 characters and lines starting with a space get no suggestions.</li>
+</ul>
+
+<h2 id="on-enter">bash: describe it and press Enter</h2>
+<p>bash can't react to each key, so type what you want to do and press <kbd>Enter</kbd>. If the first word isn't a command, the search list opens with your words already typed in, instead of <code>command not found</code>. The command you pick replaces your line, ready to edit or run; it never runs by itself. <kbd>Esc</kbd> keeps your line, and <kbd>Enter</kbd> on it again runs it as typed. Real commands run as always.</p>
+
+<h2 id="panel">The search list</h2>
+<p>Type <code>loxx</code> with no arguments to open the full search list right under your prompt, with filters.</p>
 <div class="term" role="img" aria-label="The loxx search list with four results and the key help line.">
 <pre><b>loxx ❯</b> undo last commit<span class="cursor"> </span>
 <span class="sel">▸ git reset --soft HEAD~1</span>  <span class="dim">~/code/shop · 3 days ago · 2×</span> <span class="ok">✓</span>
@@ -56,23 +76,23 @@
 <span class="dim">filter: all (Tab) · ↑↓ · Enter use · Esc cancel</span></pre>
 </div>
 
-<h2 id="keys">Keys</h2>
+<h3 id="keys">Keys</h3>
 <div class="table"><table>
   <thead><tr><th>Key</th><th>What it does</th></tr></thead>
   <tbody>
     <tr><td>Type</td><td>Search. Exact matches show at once, matches by meaning a moment later.</td></tr>
     <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Move through the list.</td></tr>
     <tr><td><kbd>Tab</kbd></td><td>Switch the filter (see below). <kbd>Shift</kbd>+<kbd>Tab</kbd> goes back.</td></tr>
-    <tr><td><kbd>Enter</kbd></td><td>Use the command: zsh puts it in your prompt, bash puts it one <kbd>↑</kbd> away.</td></tr>
+    <tr><td><kbd>Enter</kbd></td><td>Put the command in your prompt, ready to edit or run.</td></tr>
     <tr><td><kbd>Esc</kbd> or <kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Close without choosing.</td></tr>
   </tbody>
 </table></div>
 <p>With an empty search, the list shows your most recent commands.</p>
 
-<h2 id="results">Reading a result</h2>
+<h3 id="results">Reading a result</h3>
 <p>Each line shows the command, then the folder it ran in, when it last ran, how many times it ran (<code>14×</code>), and whether it worked: <span style="color:var(--ok)">✓</span> for success, <span style="color:var(--bad)">✗</span> for a failure. Commands loaded from your old history say “imported”. A command that spans several lines is shown on one line, with <code>↵</code> marking the line breaks.</p>
 
-<h2 id="filters">Filters</h2>
+<h3 id="filters">Filters</h3>
 <p><kbd>Tab</kbd> cycles through:</p>
 <div class="table"><table>
   <thead><tr><th>Filter</th><th>Shows</th></tr></thead>

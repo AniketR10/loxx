@@ -17,10 +17,8 @@ import (
 	"github.com/AniketR10/loxx/internal/store"
 )
 
-// runRecord stores one finished command. The shell hooks (`loxx init`) call it
-// in the background after every command, so it must stay fast: open the
-// database, scrub, insert, maybe start a background embed, exit. It never
-// loads the embedding model.
+// runRecord stores one finished command. It runs after every command, so it
+// never loads the model.
 func runRecord(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("record", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -113,9 +111,8 @@ func runRecord(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// parseEpoch parses Unix epoch seconds such as "1759000000" or
-// "1759000000.123456". bash's $EPOCHREALTIME uses the locale's decimal
-// separator, so "1759000000,123456" is accepted too. Empty means unknown.
+// parseEpoch parses epoch seconds, with a dot or (some locales) a comma.
+// Empty means unknown.
 func parseEpoch(s string) (time.Time, error) {
 	if s == "" {
 		return time.Time{}, nil

@@ -14,8 +14,7 @@ var (
 	//go:embed loxx.bash
 	bashScript string
 
-	// bash-preexec 0.7.0 (MIT), vendored unmodified from
-	// https://github.com/rcaloras/bash-preexec at tag 0.7.0.
+	// bash-preexec 0.7.0 (MIT), vendored unmodified.
 	//go:embed bash-preexec.sh
 	bashPreexec string
 
@@ -27,9 +26,7 @@ var (
 // from; it must never occur in bash-preexec itself.
 const bashPreexecEnd = "__LOXX_BASH_PREEXEC__"
 
-// Script returns the integration script for shell ("bash" or "zsh"), with
-// binPath, the absolute path of the loxx binary, filled in so the hooks don't
-// depend on $PATH.
+// Script returns the hook for shell with binPath filled in.
 func Script(shell, binPath string) (string, error) {
 	var s string
 	switch shell {
@@ -44,7 +41,32 @@ func Script(shell, binPath string) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported shell %q (supported: bash, zsh)", shell)
 	}
-	return strings.Replace(s, "__LOXX_BIN__", quote(binPath), 1), nil
+	return guarded(strings.Replace(s, "__LOXX_BIN__", quote(binPath), 1), shell)
+}
+
+// hookEnd ends the here-document in guarded; no hook may contain it.
+const hookEnd = "__LOXX_HOOK_END__"
+
+// guarded makes a hook run only in its own shell; elsewhere it prints which
+// init to use. The wrong shell never parses it (it's a quoted here-document).
+func guarded(script, shell string) (string, error) {
+	if strings.Contains(script, hookEnd) {
+		return "", fmt.Errorf("the %s hook contains %s", shell, hookEnd)
+	}
+	version, other := "ZSH_VERSION", "bash"
+	if shell == "bash" {
+		version, other = "BASH_VERSION", "zsh"
+	}
+	return fmt.Sprintf(`if [ -n "${%[1]s-}" ]; then
+IFS= read -r -d '' _loxx_hook <<'%[2]s'
+%[3]s
+%[2]s
+eval "$_loxx_hook"
+unset _loxx_hook
+else
+  printf '%%s\n' 'loxx: this is the %[4]s hook, but this shell is not %[4]s. Use: eval "$(loxx init %[5]s)"' >&2
+fi
+`, version, hookEnd, strings.TrimRight(script, "\n"), shell, other), nil
 }
 
 // quote returns s as a single-quoted shell word, safe in bash and zsh.
