@@ -69,6 +69,8 @@
   <thead><tr><th>Variable</th><th>What it does</th></tr></thead>
   <tbody>
     <tr><td><code>LOXX_DB_PATH</code></td><td>Keep the history in a different file.</td></tr>
+    <tr><td><code>LOXX_SUGGEST=0</code></td><td>Turn off suggestions at the prompt (zsh's list while you type, bash's list on Enter). <code>loxx</code> still works.</td></tr>
+    <tr><td><code>LOXX_QUIET=1</code></td><td>Hide the green <code>● loxx</code> at the right of the prompt, the hint in an empty prompt, and “loxx is on” when a terminal opens.</td></tr>
     <tr><td><code>LOXX_BACKGROUND_EMBED=0</code></td><td>Don't process new commands in the background. Search by meaning then only covers what <code>loxx embed --pending</code> has processed.</td></tr>
     <tr><td><code>XDG_DATA_HOME</code></td><td>If set, the history goes in <code>$XDG_DATA_HOME/loxx/</code> instead of <code>~/.local/share/loxx/</code>.</td></tr>
   </tbody>
@@ -97,7 +99,7 @@
 <h3 id="size">Why is it 54&nbsp;MB?</h3>
 <p>The search model is built into the program, so it works offline with nothing to download later.</p>
 <h3 id="run">Can loxx run a command by mistake?</h3>
-<p>No. Choosing a result only puts it in your prompt (zsh) or one <kbd>↑</kbd> away (bash). You always press Enter yourself.</p>
+<p>No. Choosing a result only puts it in your prompt. You always press Enter yourself.</p>
 
 <h2 id="bugs">Still stuck?</h2>
 <p><a href="https://github.com/AniketR10/loxx/issues/new?template=bug_report.md">Open an issue</a> with the output of <code>loxx status</code>. It shows counts and paths, not your commands.</p>
