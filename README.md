@@ -4,7 +4,7 @@
 
 Find any command you ran before, even if you only remember what it did.
 
-Type `loxx`, then describe what you want, like "restart the web server" or
+Press Ctrl-G, then describe what you want, like "restart the web server" or
 "undo my last commit". You can also type part of the command, like
 "port-forward". Pick one, and it appears in your prompt, ready to use.
 
@@ -28,25 +28,14 @@ old command history. It does not need `sudo`.
 
 ## Use
 
-Just type at your normal prompt. A green `● loxx` at the right of every prompt shows it's on.
-
-**zsh (Linux and macOS):** type what you want to do, like `undo my last commit`,
-or part of a command, and stop typing for a moment. Matching commands appear
-under the line. Nothing is chosen until you press ↓; then ↑ ↓ move, and Enter
-puts the command in your prompt. Enter without ↓ runs what you typed, as usual.
+Press **Ctrl-G** at your prompt to open the search list. Anything already
+typed on the line becomes the search.
 
 ```
-~/code $ undo my last commit
-  git reset --soft HEAD~1  ~/code/shop · 3 days ago
+loxx ❯ undo my last commit
+▸ git reset --soft HEAD~1  ~/code/shop · 3 days ago
   git revert HEAD  ~/code/api · 2 weeks ago
 ```
-
-**bash (Linux):** type what you want to do and press Enter. If it isn't a
-command, the search list opens with your words as the search, instead of
-`command not found`. The command you pick replaces your line, ready to edit
-or run. Esc keeps your line; Enter on it again runs it as typed.
-
-**Anywhere:** type `loxx` and press Enter to open the full search list:
 
 | Key | What it does |
 |---|---|
@@ -54,7 +43,10 @@ or run. Esc keeps your line; Enter on it again runs it as typed.
 | ↑ ↓ | Move up and down the list. |
 | Tab | Show only: commands from this folder, from this terminal, or ones that failed. |
 | Enter | Put the command in your prompt, ready to edit or run. |
-| Esc | Close without choosing. |
+| Esc | Close without choosing; your line stays as it was. |
+
+Typing `loxx` and pressing Enter opens the same list. (In bash, the command
+you pick is then one ↑ away.)
 
 loxx never runs a command by itself. You always press Enter to run it.
 
@@ -124,8 +116,7 @@ loxx has no settings file. These environment variables cover the rare cases:
 |---|---|
 | `LOXX_DB_PATH` | Save history to a different file. |
 | `LOXX_BACKGROUND_EMBED=0` | Don't process new commands in the background (search by meaning then only covers commands processed by `loxx embed --pending`). |
-| `LOXX_SUGGEST=0` | Turn off suggestions at the prompt (zsh's list while you type, bash's list on Enter). `loxx` still works. |
-| `LOXX_QUIET=1` | Hide the green `● loxx` at the right of the prompt, the hint in an empty prompt, and "loxx is on" when a terminal opens. |
+| `LOXX_QUIET=1` | Hide "loxx is on" when a terminal opens. |
 
 To see the full list of commands: `loxx help`.
 

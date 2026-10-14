@@ -63,14 +63,16 @@
 <h2 id="not-found"><code>loxx: command not found</code></h2>
 <p>The installer puts loxx in <code>~/.local/bin</code> and doesn't change your <code>PATH</code>. In a new terminal, typing <code>loxx</code> works anyway, because the hook adds it. Anywhere else, such as scripts, use <code>~/.local/bin/loxx</code>, or add <code>~/.local/bin</code> to your <code>PATH</code>.</p>
 
+<h2 id="ctrl-g"><kbd>Ctrl-G</kbd> does nothing</h2>
+<p>loxx only takes <kbd>Ctrl-G</kbd> if it still does what your shell does by default. If you've given it another job yourself, loxx leaves it alone: type <code>loxx</code> and press <kbd>Enter</kbd> instead. Terminals opened before you installed loxx don't have it yet; open a new one.</p>
+
 <h2 id="settings">Settings</h2>
 <p>loxx has no settings file. These environment variables cover the rare cases:</p>
 <div class="table"><table>
   <thead><tr><th>Variable</th><th>What it does</th></tr></thead>
   <tbody>
     <tr><td><code>LOXX_DB_PATH</code></td><td>Keep the history in a different file.</td></tr>
-    <tr><td><code>LOXX_SUGGEST=0</code></td><td>Turn off suggestions at the prompt (zsh's list while you type, bash's list on Enter). <code>loxx</code> still works.</td></tr>
-    <tr><td><code>LOXX_QUIET=1</code></td><td>Hide the green <code>● loxx</code> at the right of the prompt, the hint in an empty prompt, and “loxx is on” when a terminal opens.</td></tr>
+    <tr><td><code>LOXX_QUIET=1</code></td><td>Hide “loxx is on” when a terminal opens.</td></tr>
     <tr><td><code>LOXX_BACKGROUND_EMBED=0</code></td><td>Don't process new commands in the background. Search by meaning then only covers what <code>loxx embed --pending</code> has processed.</td></tr>
     <tr><td><code>XDG_DATA_HOME</code></td><td>If set, the history goes in <code>$XDG_DATA_HOME/loxx/</code> instead of <code>~/.local/share/loxx/</code>.</td></tr>
   </tbody>
