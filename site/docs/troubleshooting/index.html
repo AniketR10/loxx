@@ -63,8 +63,9 @@
 <h2 id="not-found"><code>loxx: command not found</code></h2>
 <p>The installer puts loxx in <code>~/.local/bin</code> and doesn't change your <code>PATH</code>. In a new terminal, typing <code>loxx</code> works anyway, because the hook adds it. Anywhere else, such as scripts, use <code>~/.local/bin/loxx</code>, or add <code>~/.local/bin</code> to your <code>PATH</code>.</p>
 
-<h2 id="ctrl-g"><kbd>Ctrl-G</kbd> does nothing</h2>
-<p>loxx only takes <kbd>Ctrl-G</kbd> if it still does what your shell does by default. If you've given it another job yourself, loxx leaves it alone: type <code>loxx</code> and press <kbd>Enter</kbd> instead. Terminals opened before you installed loxx don't have it yet; open a new one.</p>
+<h2 id="ctrl-g"><kbd>Ctrl-Alt-G</kbd> does nothing</h2>
+<p>loxx only takes <kbd>Ctrl-Alt-G</kbd> if it still does what your shell does by default. If you've given it another job yourself, loxx leaves it alone: type <code>loxx</code> and press <kbd>Enter</kbd> instead. Terminals opened before you installed loxx don't have it yet; open a new one.</p>
+<p>On a Mac the key is <kbd>Ctrl-Option-G</kbd>, and the terminal must send Option as Alt. Terminal: Settings → Profiles → Keyboard → “Use Option as Meta key”. iTerm2: Settings → Profiles → Keys → Left Option key → “Esc+”.</p>
 
 <h2 id="settings">Settings</h2>
 <p>loxx has no settings file. These environment variables cover the rare cases:</p>

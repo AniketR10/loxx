@@ -19,26 +19,26 @@ func (s *session) key(k string, wait time.Duration) {
 }
 
 const (
-	keyUp    = "\x1b[A"
-	keyEsc   = "\x1b"
-	keyCtrlG = "\x07"
+	keyUp       = "\x1b[A"
+	keyEsc      = "\x1b"
+	keyCtrlAltG = "\x1b\x07"
 )
 
-// TestSearchKey opens the search with Ctrl-G in real bash and zsh.
+// TestSearchKey opens the search with Ctrl-Alt-G in real bash and zsh.
 func TestSearchKey(t *testing.T) {
 	bin := buildLoc(t)
 	for _, sh := range shells {
 		t.Run(sh.name, func(t *testing.T) {
 			s := startShell(t, sh.name, sh.args)
 			s.typeLines(`eval "$('`+bin+`' init `+sh.name+`)"`, `loxx add 'echo picked-$((40+2))'`)
-			if !strings.Contains(s.out.String(), "loxx is on: press Ctrl-G") {
+			if !strings.Contains(s.out.String(), "loxx is on: press Ctrl-Alt-G") {
 				t.Errorf("no startup message\nscreen:\n%s", s.out.String())
 			}
 
 			s.key("picked", 200*time.Millisecond)
-			s.key(keyCtrlG, 1500*time.Millisecond)
+			s.key(keyCtrlAltG, 1500*time.Millisecond)
 			if !strings.Contains(s.out.String(), "loxx ❯") {
-				t.Fatalf("Ctrl-G did not open the search\nscreen:\n%s", s.out.String())
+				t.Fatalf("Ctrl-Alt-G did not open the search\nscreen:\n%s", s.out.String())
 			}
 			s.key("\r", time.Second) // the first result fills the line
 			if strings.Contains(s.out.String(), "picked-42") {
@@ -50,7 +50,7 @@ func TestSearchKey(t *testing.T) {
 			}
 
 			s.key("echo kept-", 200*time.Millisecond) // Esc keeps the typed line
-			s.key(keyCtrlG, 1500*time.Millisecond)
+			s.key(keyCtrlAltG, 1500*time.Millisecond)
 			s.key(keyEsc, 800*time.Millisecond)
 			s.key("$((1+1))\r", 600*time.Millisecond)
 			s.typeLines("exit")
@@ -66,12 +66,12 @@ func TestSearchKey(t *testing.T) {
 	}
 }
 
-// TestSearchKeyKeepsYourBinding: loxx never takes a Ctrl-G you bound yourself.
+// TestSearchKeyKeepsYourBinding: loxx never takes a Ctrl-Alt-G you bound yourself.
 func TestSearchKeyKeepsYourBinding(t *testing.T) {
 	bin := buildLoc(t)
 	for _, c := range []struct{ shell, bind, check string }{
-		{"zsh", `bindkey '^G' beginning-of-line`, `bindkey '^G'`},
-		{"bash", `bind '"\C-g": beginning-of-line'`, `bind -p | grep -F '"\C-g"'`},
+		{"zsh", `bindkey '^[^G' beginning-of-line`, `bindkey '^[^G'`},
+		{"bash", `bind '"\e\C-g": beginning-of-line'`, `bind -p | grep -F '"\e\C-g"'`},
 	} {
 		if _, err := exec.LookPath(c.shell); err != nil {
 			continue
@@ -83,7 +83,7 @@ func TestSearchKeyKeepsYourBinding(t *testing.T) {
 		script := c.bind + `; eval "$('` + bin + `' init ` + c.shell + `)"; ` + c.check
 		out, _ := exec.Command(c.shell, append(args, script)...).CombinedOutput()
 		if !strings.Contains(string(out), "beginning-of-line") {
-			t.Errorf("%s: your Ctrl-G binding was replaced\n%s", c.shell, out)
+			t.Errorf("%s: your Ctrl-Alt-G binding was replaced\n%s", c.shell, out)
 		}
 	}
 }
