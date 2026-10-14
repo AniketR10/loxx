@@ -258,13 +258,6 @@ func runStatus(args []string, stdout, stderr io.Writer) int {
 		}
 		fmt.Fprintf(stdout, "%-11s %s: %s\n", sh+":", format.TildePath(rc, home), state)
 	}
-	if os.Getenv("LOXX_SUGGEST") == "0" {
-		fmt.Fprintln(stdout, "suggestions: off (LOXX_SUGGEST=0)")
-	} else if goos == "darwin" {
-		fmt.Fprintln(stdout, "suggestions: on (zsh: as you type)")
-	} else {
-		fmt.Fprintln(stdout, "suggestions: on (zsh: as you type; bash: type a description, press Enter)")
-	}
 	if sh := os.Getenv("LOXX_HOOK"); sh != "" {
 		fmt.Fprintf(stdout, "this shell: hook active (%s)\n", sh)
 	} else {

@@ -90,71 +90,28 @@ loxx() {
   printf '\033[2m↑ to use: %s\033[0m\n' "$chosen" >&2
 }
 
-# Enter on a line that isn't a command opens the list with it as the search;
-# the choice replaces the line. Off with LOXX_SUGGEST=0.
-_loxx_enter() {
-  local line=$READLINE_LINE word chosen query
-  bind '"\e[1920~": accept-line'
-  if [[ $line == loxx ]]; then
-    query='' # plain `loxx`: open the list here too, so the choice lands on the line
-  else
-    [[ ${LOXX_SUGGEST:-1} != 0 && -n $line && $line != [[:space:]]* ]] || return 0
-    [[ $line != "${_loxx_declined:-}" ]] || return 0 # Esc'd once: run it as typed
-    word=${line%%[[:space:]]*}
-    # Paths, assignments and shell syntax are bash's to handle.
-    [[ $word == *[/=\$\`\(\)\{\}\<\>\|\&\;\!\'\"\\~*?\[]* ]] && return 0
-    type -t -- "$word" >/dev/null && return 0
-    query=$line
-  fi
-  bind '"\e[1920~": redraw-current-line'
-  if chosen=$("$_loxx_bin" panel --cwd "$PWD" --session "$_loxx_session" --query "$query" 2>/dev/null) && [[ -n $chosen ]]; then
-    READLINE_LINE=$chosen
-    READLINE_POINT=${#chosen}
-    _loxx_declined=''
-  elif [[ -n $query ]]; then
-    _loxx_declined=$line
-  else
-    READLINE_LINE='' # cancelled plain `loxx`: leave an empty line
-    READLINE_POINT=0
-  fi
+# Ctrl-G opens the search with the line as the query; the choice fills the line, never runs.
+_loxx_search() {
+  local chosen
+  chosen=$("$_loxx_bin" panel --cwd "$PWD" --session "$_loxx_session" --query "$READLINE_LINE") || return 0
+  [[ -n $chosen ]] || return 0
+  READLINE_LINE=$chosen
+  READLINE_POINT=${#chosen}
 }
-_loxx_bind_enter() {
+_loxx_bind_search() {
   local map
   for map in emacs vi-insert; do
-    # Only where Enter is still accept-line.
-    bind -m "$map" -p 2>/dev/null | grep -qx '"\\C-m": accept-line' || continue
-    bind -m "$map" -x '"\e[1919~": _loxx_enter'
-    bind -m "$map" '"\e[1920~": accept-line'
-    bind -m "$map" '"\C-m": "\e[1919~\e[1920~"'
+    # Only where Ctrl-G still does bash's default.
+    bind -m "$map" -p 2>/dev/null | grep -qxE '"\\C-g": (abort|self-insert)' || continue
+    bind -m "$map" -x '"\C-g": _loxx_search'
   done
 }
-[[ $- == *i* ]] && _loxx_bind_enter 2>/dev/null
-
-# "● loxx" at the right of the prompt, drawn before it (PS1 untouched).
-_loxx_ran=''
-_loxx_badge() {
-  [[ ${LOXX_QUIET:-0} == 1 || ! -t 1 ]] && return 0
-  [[ -n $_loxx_ran ]] || printf '\e7\e[A\e[%dG\e[K\e8' $(( ${COLUMNS:-80} - 5 ))
-  _loxx_ran=''
-  printf '\e7\e[%dG\e[1;38;5;28m● loxx\e[0m\e8' $(( ${COLUMNS:-80} - 5 ))
-}
-# Clears the badge from the line just run.
-_loxx_badge_ran() {
-  _loxx_ran=1
-  [[ ${LOXX_QUIET:-0} == 1 || ! -t 1 || $1 == *$'\n'* ]] && return 0
-  printf '\e7\e[A\e[%dG\e[K\e8' $(( ${COLUMNS:-80} - 5 ))
-}
+[[ $- == *i* ]] && _loxx_bind_search 2>/dev/null
 
 [[ " ${preexec_functions[*]-} " == *" _loxx_preexec "* ]] || preexec_functions+=(_loxx_preexec)
-[[ " ${preexec_functions[*]-} " == *" _loxx_badge_ran "* ]] || preexec_functions+=(_loxx_badge_ran)
 [[ " ${precmd_functions[*]-} " == *" _loxx_precmd "* ]] || precmd_functions+=(_loxx_precmd)
-[[ " ${precmd_functions[*]-} " == *" _loxx_badge "* ]] || precmd_functions+=(_loxx_badge)
 
 # Startup line, only in an interactive terminal (never in scp or scripts).
 if [[ ${LOXX_QUIET:-0} != 1 && $- == *i* && -t 1 ]]; then
-  if [[ ${LOXX_SUGGEST:-1} != 0 ]]; then
-    printf '\033[2mloxx is on: type what you want to do, like "undo my last commit", and press Enter.\033[0m\n'
-  else
-    printf '\033[2mloxx is on: type loxx to search your history by meaning.\033[0m\n'
-  fi
+  printf '\033[2mloxx is on: press Ctrl-G to search your history, e.g. "undo my last commit".\033[0m\n'
 fi

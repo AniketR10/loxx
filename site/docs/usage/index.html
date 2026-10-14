@@ -46,27 +46,7 @@
   </nav>
   <article class="page">
 <h1>Searching</h1>
-<p>You don't need to type <code>loxx</code> first: type at your normal prompt.</p>
-
-<h2 id="as-you-type">zsh: suggestions as you type</h2>
-<p>Type what you want to do, or part of a command, and stop typing for a moment. Matching commands appear under the line:</p>
-<div class="term" role="img" aria-label="At the zsh prompt, the typed line “undo my last commit” with two matching commands listed under it.">
-<pre><span class="dim">~/code $</span> undo my last commit<span class="cursor"> </span>
-  git reset --soft HEAD~1  <span class="dim">~/code/shop · 3 days ago</span>
-  git revert HEAD  <span class="dim">~/code/api · 2 weeks ago</span></pre>
-</div>
-<ul>
-  <li><strong>Nothing is chosen</strong> until you press <kbd>↓</kbd>. Then <kbd>↑</kbd> <kbd>↓</kbd> move, and <kbd>Enter</kbd> puts the command in your prompt, ready to edit. It never runs by itself.</li>
-  <li><kbd>Enter</kbd> without <kbd>↓</kbd> runs what you typed, as usual. Keep typing to close the list.</li>
-  <li>Commands containing your words show after about 0.3&nbsp;s. Commands that do what you described follow after about 1&nbsp;s: that search uses the language model, so it only runs once you've stopped typing, never on every key.</li>
-  <li>Lines shorter than 3 characters and lines starting with a space get no suggestions.</li>
-</ul>
-
-<h2 id="on-enter">bash: describe it and press Enter</h2>
-<p>bash can't react to each key, so type what you want to do and press <kbd>Enter</kbd>. If the first word isn't a command, the search list opens with your words already typed in, instead of <code>command not found</code>. The command you pick replaces your line, ready to edit or run; it never runs by itself. <kbd>Esc</kbd> keeps your line, and <kbd>Enter</kbd> on it again runs it as typed. Real commands run as always.</p>
-
-<h2 id="panel">The search list</h2>
-<p>Type <code>loxx</code> with no arguments to open the full search list right under your prompt, with filters.</p>
+<p>Press <kbd>Ctrl-G</kbd> at your prompt to open the search list right under it. Anything already typed on the line becomes the search, so you can type <code>undo my last commit</code> first and then press <kbd>Ctrl-G</kbd>. Typing <code>loxx</code> and pressing <kbd>Enter</kbd> opens the same list.</p>
 <div class="term" role="img" aria-label="The loxx search list with four results and the key help line.">
 <pre><b>loxx ❯</b> undo last commit<span class="cursor"> </span>
 <span class="sel">▸ git reset --soft HEAD~1</span>  <span class="dim">~/code/shop · 3 days ago · 2×</span> <span class="ok">✓</span>

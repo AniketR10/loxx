@@ -80,14 +80,10 @@ func TestSetupStatusUninstall(t *testing.T) {
 	}
 
 	stdout, _ := runOK(t, "status")
-	for _, want := range []string{"2 unique", "bash:", "hook installed", "suggestions: on (zsh: as you type; bash:", "this shell: hook not active"} {
+	for _, want := range []string{"2 unique", "bash:", "hook installed", "this shell: hook not active"} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("status output lacks %q:\n%s", want, stdout)
 		}
-	}
-	t.Setenv("LOXX_SUGGEST", "0")
-	if stdout, _ = runOK(t, "status"); !strings.Contains(stdout, "suggestions: off (LOXX_SUGGEST=0)") {
-		t.Errorf("status with suggestions off:\n%s", stdout)
 	}
 	t.Setenv("LOXX_HOOK", "bash")
 	if stdout, _ = runOK(t, "status"); !strings.Contains(stdout, "this shell: hook active (bash)") {
