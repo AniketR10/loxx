@@ -9,9 +9,7 @@ import (
 	"github.com/AniketR10/loxx/internal/store"
 )
 
-// BenchmarkKeywordLatency measures what the user waits for before the first
-// results appear: open the database, run the keyword query, fetch details.
-// Point LOXX_BENCH_DB at a large history (e.g. 100k commands) to run it.
+// BenchmarkKeywordLatency times the first results; set LOXX_BENCH_DB to run it.
 func BenchmarkKeywordLatency(b *testing.B) {
 	path := os.Getenv("LOXX_BENCH_DB")
 	if path == "" {

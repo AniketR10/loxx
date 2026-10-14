@@ -1,12 +1,6 @@
 #!/bin/sh
-# The fresh-machine install check for macOS, like run.sh does on a fresh
-# Fedora: install → a new zsh records commands → install again → uninstall.
-# It runs as a brand-new Mac user would (zsh login shell, no ~/.zshrc yet) in
-# a temporary home directory, so it never touches your own. CI runs it on
-# GitHub's macOS machines; it also works on Linux with zsh.
-#
-#   LOXX_RELEASE_URL=https://github.com/AniketR10/loxx/releases/download/<tag> sh tools/installtest/macos.sh
-#   make dist && LOXX_RELEASE_URL=file://$PWD/dist sh tools/installtest/macos.sh
+# Fresh-Mac-user install check in a temp home (also runs on Linux with zsh):
+#   LOXX_RELEASE_URL=file://$PWD/dist sh tools/installtest/macos.sh
 set -eu
 : "${LOXX_RELEASE_URL:?set LOXX_RELEASE_URL to a release, or to file://…/dist after make dist}"
 fail() {

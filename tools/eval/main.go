@@ -1,15 +1,6 @@
-// Command eval is a dev-only harness that scores loxx's search on an eval set:
-// for each natural-language query, where does the expected command rank? It
-// ranks through internal/search, so what it measures is what loxx ships.
-//
-// Usage:
+// Command eval scores loxx's search on an eval set (dev only).
 //
 //	go run ./tools/eval --db HISTORY_DB --queries QUERIES_JSONL [--grid]
-//
-// The database must be fully embedded first (`loxx embed --pending`). The eval
-// set is JSON lines of {"query": "...", "expected": ["command text", ...]};
-// see docs/decisions/0001-embedding-model.md. --grid also scores a small grid
-// of fusion settings.
 package main
 
 import (

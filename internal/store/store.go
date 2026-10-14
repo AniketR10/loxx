@@ -1,8 +1,4 @@
-// Package store persists shell history in SQLite.
-//
-// Commands are deduplicated by their scrubbed text; each time a command runs
-// is a separate execution row. Every write takes a scrub.Command, so nothing
-// reaches the database without passing through the scrubber.
+// Package store keeps shell history in SQLite; writes take only scrubbed commands.
 package store
 
 import (
@@ -26,13 +22,8 @@ type DB struct {
 	sql *sql.DB
 }
 
-// DefaultPath returns the history database location: $LOXX_DB_PATH if set,
-// otherwise $XDG_DATA_HOME/loxx/history.db, falling back to
-// ~/.local/share/loxx/history.db as the XDG spec requires.
-//
-// loxx was called loc until 2026-09-30. If the loxx data directory does not
-// exist yet but the old loc one does, it is moved into place first, so
-// existing history carries over.
+// DefaultPath is $LOXX_DB_PATH, else $XDG_DATA_HOME/loxx/history.db
+// (~/.local/share). An old loc directory is moved into place first.
 func DefaultPath() (string, error) {
 	if p := os.Getenv("LOXX_DB_PATH"); p != "" {
 		return p, nil
@@ -52,10 +43,7 @@ func DefaultPath() (string, error) {
 	return filepath.Join(newDir, "history.db"), nil
 }
 
-// moveLegacyDir renames the old data directory to the new one, but only when
-// the new one does not exist and the old one holds our history.db (another
-// program could own a directory called "loc"). Racing processes are fine:
-// whoever loses finds the new directory already in place.
+// moveLegacyDir moves the old loc directory if it holds our history.db.
 func moveLegacyDir(oldDir, newDir string) error {
 	if _, err := os.Stat(newDir); !errors.Is(err, os.ErrNotExist) {
 		return nil // already there (or not ours to judge)
@@ -72,9 +60,7 @@ func moveLegacyDir(oldDir, newDir string) error {
 	return nil
 }
 
-// Open opens the database at path, creating it and any missing parent
-// directories with owner-only permissions, and migrates it to the current
-// schema.
+// Open opens or creates (owner-only) the database at path and migrates it.
 func Open(ctx context.Context, path string) (*DB, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, err
@@ -90,12 +76,8 @@ func Open(ctx context.Context, path string) (*DB, error) {
 		return nil, err
 	}
 
-	// Serialize the first connection and migration check across processes.
-	// When many processes race to set up a new database, SQLite answers some
-	// of them SQLITE_BUSY without honoring busy_timeout while the file is
-	// switched to WAL mode (TestConcurrentWriters lost up to 4 of 20 writers
-	// this way). Once set up, later connections never race, so the lock is
-	// held only for this first step (~1 ms).
+	// Serialize first setup across processes: SQLite can return SQLITE_BUSY
+	// while switching to WAL, ignoring busy_timeout.
 	unlock, err := lockFile(path + ".lock")
 	if err != nil {
 		return nil, err
@@ -127,11 +109,8 @@ func lockFile(path string) (unlock func(), err error) {
 	return func() { f.Close() }, nil
 }
 
-// dsn builds the modernc.org/sqlite connection string. Pragmas run on every
-// new connection, in order: busy_timeout comes first so that switching to WAL
-// waits for other processes instead of failing. _txlock=immediate makes every
-// transaction take the write lock up front, which avoids the SQLITE_BUSY
-// errors that WAL returns when a read transaction later tries to write.
+// dsn: busy_timeout first so WAL setup waits; _txlock=immediate avoids
+// SQLITE_BUSY in read-then-write transactions.
 func dsn(path string) string {
 	q := url.Values{}
 	q.Add("_pragma", "busy_timeout(10000)")
@@ -202,9 +181,8 @@ func (db *DB) AddBatch(ctx context.Context, es []Execution) error {
 	return tx.Commit()
 }
 
-// addTx inserts e inside tx. now stands in for commands.first_seen/last_seen
-// when e has no start time (e.g. imported history); the execution itself
-// keeps a NULL start time so no invented time is ever shown.
+// addTx inserts e. Imported runs keep a NULL start time; now only fills
+// first_seen/last_seen.
 func addTx(ctx context.Context, tx *sql.Tx, e Execution, now time.Time) (int64, error) {
 	text := e.Command.Text()
 	if text == "" {

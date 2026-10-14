@@ -5,9 +5,7 @@ import (
 	"strings"
 )
 
-// Filter narrows searches to a subset of commands. The zero Filter matches
-// everything. The meanings were decided with the user (ROADMAP §3, panel
-// behaviour).
+// Filter narrows a search; the zero Filter matches everything.
 type Filter struct {
 	// Dir keeps commands run in this directory, or anywhere in GitRoot when
 	// GitRoot is set (the git repository containing Dir).

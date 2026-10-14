@@ -1,10 +1,7 @@
 name: Website
 
-# Publishes site/ to https://loxx.run (GitHub Pages), with the latest release's
-# install.sh served at /install, so `curl -fsSL https://loxx.run/install | sh`
-# always matches the binaries it downloads. Runs when the site changes and when
-# a full release (not a pre-release) is published. Until the first full
-# release exists, it checks the site and skips publishing.
+# Publishes site/ to loxx.run with the latest release's install.sh at /install.
+# Skips publishing until the first full release exists.
 on:
   push:
     branches: [main]

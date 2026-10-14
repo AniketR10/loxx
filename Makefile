@@ -11,10 +11,8 @@ export CGO_ENABLED := 0
 SHA256SUM := $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo 'shasum -a 256')
 sha256 = $$($(SHA256SUM) $(1) | cut -d ' ' -f 1)
 
-# The embedding model's weights are compiled into the binary but not stored in
-# git: `make model` downloads them from a GitHub Release and verifies the
-# SHA-256. Reproduce the file from the original Hugging Face source with
-# tools/model/convert.py (see internal/embed/model/README.md).
+# Model weights aren't in git: `make model` downloads and verifies them
+# (rebuild them with tools/model/convert.py).
 MODEL_FILE := internal/embed/model/minilm-l6-v2.f16.safetensors
 MODEL_SHA256 := aa3d97aea538b3247506fd426683a526d23ed345ac2c20ea3172296f57ea272b
 MODEL_URL := https://github.com/AniketR10/loxx/releases/download/model-minilm-l6-v2-f16/minilm-l6-v2.f16.safetensors

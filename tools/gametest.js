@@ -1,6 +1,4 @@
-// Checks the home page game (site/game.js): every clue's command must show up
-// in the top 4 for the ways a player would plausibly describe it, and the
-// daily puzzle must be fair. Run: node tools/gametest.js
+// Checks every game clue is findable and the daily puzzle is fair.
 const assert = require('node:assert/strict');
 const { HISTORY, CLUES, search, today } = require('../site/game.js');
 

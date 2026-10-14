@@ -1,6 +1,4 @@
-// Package setup adds and removes the marked block that loads the loxx hook
-// from a shell's rc file. Removing is the exact inverse of adding: after
-// uninstall the file is byte-identical to what it was before setup.
+// Package setup adds and removes loxx's rc-file block, restoring files exactly.
 package setup
 
 import (
@@ -23,9 +21,7 @@ const (
 	createdFile = " (loxx created this file)"
 )
 
-// ErrHandWritten means the rc file already loads the loxx hook outside a
-// loxx block. Adding a block too would load the hook twice and record every
-// command twice.
+// ErrHandWritten: the file already loads the hook outside a block.
 var ErrHandWritten = errors.New("the file already loads the loxx hook")
 
 // handWritten matches a line that runs `loxx init bash|zsh`, however the
@@ -56,10 +52,8 @@ func Block(shell, binPath string) string {
 		endMarker + "\n"
 }
 
-// Add returns content with block added, or with an existing loxx block
-// replaced in place (so a moved binary is picked up by re-running setup). It
-// returns ErrHandWritten, with the offending line, if the hook is already
-// loaded outside a block.
+// Add adds block or replaces an existing one; ErrHandWritten if the hook is
+// loaded by hand.
 func Add(content, block string) (string, error) {
 	start, end, flag, err := findBlock(content)
 	if err != nil {
@@ -102,9 +96,8 @@ func Install(path, shell, binPath string) (changed bool, err error) {
 	return EditFile(path, func(s string) (string, error) { return Add(s, block) })
 }
 
-// Uninstall removes the loxx block from the rc file at path, restoring the
-// file exactly: a file that setup created is deleted again. It reports
-// whether it changed anything.
+// Uninstall removes the block, restoring the file exactly (deleting it if setup
+// created it).
 func Uninstall(path string) (changed bool, err error) {
 	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -140,10 +133,7 @@ func HandWritten(content string) (string, bool) {
 	return handWrittenLine(content)
 }
 
-// findBlock locates the loxx block: start is the offset of its begin line,
-// end the offset just past its end line (including the newline, if any), and
-// flag what the begin marker records (addedNewline, createdFile or "").
-// start is -1 when there is no block.
+// findBlock returns the block's byte range (start -1 if none) and its flag.
 func findBlock(content string) (start, end int, flag string, err error) {
 	lines := strings.SplitAfter(content, "\n")
 	offset := 0
@@ -174,9 +164,7 @@ func handWrittenLine(content string) (string, bool) {
 	return "", false
 }
 
-// EditFile applies edit to the file at path (a missing file reads as empty)
-// and writes the result back if it changed. Symlinks are followed, so rc
-// files managed by dotfile tools stay symlinks, and the file keeps its mode.
+// EditFile rewrites path with edit's result, following symlinks and keeping the mode.
 func EditFile(path string, edit func(string) (string, error)) (changed bool, err error) {
 	target, err := filepath.EvalSymlinks(path)
 	if errors.Is(err, os.ErrNotExist) {

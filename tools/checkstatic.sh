@@ -1,12 +1,6 @@
 #!/bin/sh
-# Checks core principle P4 for each loxx binary given: one file that runs
-# without anything else installed.
-#
-# - Linux: the binary must be statically linked.
-# - macOS: Apple doesn't support fully static binaries; every program links
-#   macOS's own system library. So the binary must be built without cgo, and
-#   (where otool exists, i.e. on a Mac) link only libraries that are part of
-#   macOS itself.
+# Checks P4: Linux binaries must be static; macOS ones (which can't be) must
+# be built without cgo and link only macOS libraries.
 set -eu
 
 for bin; do

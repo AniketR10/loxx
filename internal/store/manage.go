@@ -85,11 +85,8 @@ func (db *DB) resultsBatched(ctx context.Context, ids []int64) ([]Result, error)
 	return all, nil
 }
 
-// Forget deletes the given commands with all their runs and vectors, and
-// makes sure their text is gone from the files on disk too: secure_delete
-// overwrites freed pages, the full-text index is compacted so no old segment
-// still holds the words, and the WAL is checkpointed and truncated. It
-// returns how many runs were removed.
+// Forget deletes commands with their runs and vectors and wipes the text from
+// disk too. It returns the number of runs removed.
 func (db *DB) Forget(ctx context.Context, ids []int64) (runs int, err error) {
 	if len(ids) == 0 {
 		return 0, nil

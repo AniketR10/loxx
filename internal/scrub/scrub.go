@@ -1,9 +1,4 @@
-// Package scrub removes secrets from shell commands before they are stored.
-//
-// Scrubbing runs in layers: private-key blocks, known token formats,
-// structural rules (KEY=value, --password flags, URL credentials, auth
-// headers), and finally a high-entropy fallback. Each secret is replaced with
-// <REDACTED:kind> so the command stays readable.
+// Package scrub replaces secrets in shell commands with <REDACTED:kind>.
 package scrub
 
 import (
@@ -11,9 +6,7 @@ import (
 	"strings"
 )
 
-// Command is a shell command that has been through Scrub. Its fields are
-// unexported so the only way to obtain one is by scrubbing, which lets
-// storage code require scrubbed input at compile time.
+// Command is scrubbed text; only Scrub makes one, so storage can require it.
 type Command struct {
 	text       string
 	redactions int
@@ -55,10 +48,7 @@ type rule struct {
 	skip func(s string, m []int) bool
 }
 
-// applyAll applies r until it finds nothing new. One pass is not enough for
-// rules anchored on a program name: in "mysql -pA -pB" the match for -pA
-// consumes "mysql", so -pB only matches on the next pass. Every pass redacts
-// at least one value and redacted values never match again, so this ends.
+// applyAll repeats r until nothing new matches (the -pB in "mysql -pA -pB").
 func (r rule) applyAll(s string) (string, int) {
 	total := 0
 	for {
@@ -97,9 +87,7 @@ func (r rule) apply(s string) (string, int) {
 	return b.String(), n
 }
 
-// isSecretValue reports whether a matched value could be a secret. Shell
-// variable references and command substitutions ($TOKEN, ${TOKEN},
-// $(pass show x)) only name a secret, and already-redacted values are done.
+// isSecretValue is false for variable references, substitutions and redactions.
 func isSecretValue(v string) bool {
 	v = strings.Trim(v, `"'`)
 	return v != "" && !strings.HasPrefix(v, "$") && !strings.Contains(v, redactedPrefix)
@@ -142,9 +130,7 @@ var rules = []rule{
 	token("sendgrid-key", `\bSG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}\b`),
 	token("jwt", `\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*`),
 
-	// Layer 3: secrets identified by where they appear.
-	// User and password classes exclude < and > so an earlier <REDACTED:kind>
-	// (which contains a colon) is never mistaken for user:password.
+	// Layer 3: by position. No < or >, so a redaction isn't read as user:pass.
 	field("url-password", `(?i)\b[a-z][a-z0-9+.-]*://[^/\s:@'"<>]+:([^@\s/'"<>]+)@`),
 	field("auth-header", `(?i)\b(?:proxy-)?authorization\s*:\s*(?:(?:bearer|basic|token|digest|negotiate)\s+)?([^\s'"]+)`),
 	field("api-key-header", `(?i)\b(?:x-api-key|api-key|x-auth-token|x-access-token|private-token|x-amz-security-token|x-vault-token)\s*:\s*([^\s'"]+)`),

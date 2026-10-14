@@ -232,9 +232,7 @@ func TestMigrate(t *testing.T) {
 	}
 }
 
-// TestNoSecretsOnDisk is the Phase 1 exit check for core principle P2: after
-// storing every command in the secret corpus, no secret appears anywhere in
-// the raw database files, including the WAL and the FTS index.
+// TestNoSecretsOnDisk: no corpus secret may appear in the raw database files.
 func TestNoSecretsOnDisk(t *testing.T) {
 	positives, err := secretcorpus.Positives()
 	if err != nil {

@@ -14,9 +14,7 @@ import (
 	"testing"
 )
 
-// loginShell is the login shell of the fresh account install.sh runs in:
-// bash on Linux, and zsh on macOS (its default, and the only shell loxx sets
-// up there).
+// loginShell of a fresh account: bash on Linux, zsh on macOS.
 var loginShell = map[string]string{"linux": "bash", "darwin": "zsh"}[runtime.GOOS]
 
 // release builds a local "GitHub release" directory, as install.sh expects

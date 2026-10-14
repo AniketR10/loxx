@@ -26,9 +26,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      # `make model` (run by lint/test/build) downloads the weights from the
-      # public model release and verifies their SHA-256; the cache avoids
-      # downloading them on every run.
+      # Model weights come from `make model`; cache them.
       - name: Cache model weights
         uses: actions/cache@v6
         with:
