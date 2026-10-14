@@ -30,12 +30,12 @@ func TestZshSuggestions(t *testing.T) {
 	bin := buildLoc(t)
 	t.Run("on", func(t *testing.T) {
 		s := startShell(t, "zsh", []string{"-f", "-i"})
-		s.typeLines(`eval "$('`+bin+`' init zsh)"`, `loxx add 'echo picked-$((40+2))'`)
+		s.typeLines(`PS1='%% '`, `eval "$('`+bin+`' init zsh)"`, `loxx add 'echo picked-$((40+2))'`)
 		if !strings.Contains(s.out.String(), "loxx is on: type what you want to do") {
 			t.Errorf("no startup message\nscreen:\n%s", s.out.String())
 		}
 		// The dim hint in the empty prompt (the startup line goes on with ", and").
-		if !regexp.MustCompile(`like "undo my last commit"[^,]`).MatchString(s.out.String()) {
+		if !strings.Contains(s.out.String(), "\x1b[90m type what you want to do") { // dim, unlike the startup line
 			t.Errorf("no hint in the empty prompt\nscreen:\n%s", s.out.String())
 		}
 
@@ -79,7 +79,7 @@ func TestZshSuggestions(t *testing.T) {
 
 	t.Run("off", func(t *testing.T) {
 		s := startShell(t, "zsh", []string{"-f", "-i"})
-		s.typeLines("export LOXX_SUGGEST=0 LOXX_QUIET=1", `eval "$('`+bin+`' init zsh)"`, `loxx add 'echo picked-$((40+2))'`)
+		s.typeLines("export LOXX_SUGGEST=0 LOXX_QUIET=1", `PS1='%% '`, `eval "$('`+bin+`' init zsh)"`, `loxx add 'echo picked-$((40+2))'`)
 		before := s.out.String()
 		s.key("echo pic", 1500*time.Millisecond)
 		if shown := strings.TrimPrefix(s.out.String(), before); strings.Contains(shown, "just now") {

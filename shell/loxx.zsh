@@ -142,7 +142,7 @@ _loxx_suggest_placeholder() {
     setopt localoptions extendedglob
     local shown=${(%)PROMPT} # the prompt as displayed, minus colour codes
     shown=${shown//$'\e'\[[0-9;]#m/}
-    POSTDISPLAY=${_loxx_placeholder[1,COLUMNS-${#${shown##*$'\n'}}-2]}
+    POSTDISPLAY=${_loxx_placeholder[1,COLUMNS-${#${shown##*$'\n'}}-10]} # room for the badge
     region_highlight+=("0 ${#POSTDISPLAY} fg=8 memo=loxx-hint")
   elif [[ -n $POSTDISPLAY && $_loxx_placeholder == "$POSTDISPLAY"* ]]; then
     POSTDISPLAY=''
