@@ -1,7 +1,4 @@
-// Package tui is the inline search panel that `loxx` opens: a query line, the
-// best matching commands, and a footer. Keyword results appear on every
-// keystroke; results ranked by meaning replace them shortly after typing
-// pauses.
+// Package tui is the inline search panel opened by `loxx`.
 package tui
 
 import (
@@ -26,6 +23,7 @@ type Options struct {
 	Session string // the shell session id, for the "this session" filter
 	Home    string // shortens paths to ~
 	Height  int    // total lines the panel may use; 0 means defaultHeight
+	Query   string // already typed when the panel opens (bash: a line that wasn't a command)
 }
 
 const (
@@ -44,7 +42,7 @@ func Run(ctx context.Context, s *search.Searcher, tty *os.File, opt Options) (st
 	if opt.Height <= 0 {
 		opt.Height = defaultHeight
 	}
-	m := &model{ctx: ctx, s: s, opt: opt}
+	m := &model{ctx: ctx, s: s, opt: opt, query: []rune(opt.Query)}
 	final, err := tea.NewProgram(m, tea.WithInput(tty), tea.WithOutput(tty)).Run()
 	if err != nil {
 		return "", err
@@ -106,9 +104,7 @@ func (m *model) refresh() tea.Cmd {
 	)
 }
 
-// cycleFilter moves to the next (step 1) or previous (step -1) filter,
-// skipping "this session" when the session is unknown: with no session id it
-// would silently match everything.
+// cycleFilter moves through the filters, skipping "this session" if unknown.
 func (m *model) cycleFilter(step int) {
 	for {
 		m.filter = (m.filter + step + len(filters)) % len(filters)

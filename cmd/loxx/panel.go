@@ -12,14 +12,12 @@ import (
 	"github.com/AniketR10/loxx/internal/tui"
 )
 
-// runPanel opens the search panel on the terminal (what typing `loxx` does)
-// and prints the chosen command to stdout. It exits 1 without output when
-// the user cancels, so the shell hook can tell the two apart.
+// runPanel opens the search panel and prints the choice; exit 1 on cancel.
 func runPanel(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("panel", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, "Usage: loxx [panel [--cwd DIR] [--session ID]]")
+		fmt.Fprintln(stderr, "Usage: loxx [panel [--cwd DIR] [--session ID] [--query TEXT]]")
 		fmt.Fprintln(stderr)
 		fmt.Fprintln(stderr, "Opens the search panel. Enter prints the chosen command; Esc cancels.")
 		fmt.Fprintln(stderr)
@@ -27,6 +25,7 @@ func runPanel(args []string, stdout, stderr io.Writer) int {
 	}
 	cwd := fs.String("cwd", "", "directory for the \"this dir\" filter (default: current directory)")
 	session := fs.String("session", "", "shell session id for the \"this session\" filter")
+	query := fs.String("query", "", "start with this already typed in the search")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -60,7 +59,7 @@ func runPanel(args []string, stdout, stderr io.Writer) int {
 
 	home, _ := os.UserHomeDir()
 	chosen, err := tui.Run(ctx, search.New(ctx, db), tty, tui.Options{
-		Dir: *cwd, GitRoot: gitRoot(*cwd), Session: *session, Home: home,
+		Dir: *cwd, GitRoot: gitRoot(*cwd), Session: *session, Home: home, Query: *query,
 	})
 	if err != nil {
 		fmt.Fprintln(stderr, "loxx:", err)
