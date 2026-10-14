@@ -4,7 +4,7 @@
 
 Find any command you ran before, even if you only remember what it did.
 
-Press Ctrl-G, then describe what you want, like "restart the web server" or
+Press Ctrl-Alt-G, then describe what you want, like "restart the web server" or
 "undo my last commit". You can also type part of the command, like
 "port-forward". Pick one, and it appears in your prompt, ready to use.
 
@@ -28,8 +28,9 @@ old command history. It does not need `sudo`.
 
 ## Use
 
-Press **Ctrl-G** at your prompt to open the search list. Anything already
-typed on the line becomes the search.
+Press **Ctrl-Alt-G** at your prompt to open the search list. Anything already
+typed on the line becomes the search. (On a Mac: Ctrl-Option-G, with "Use
+Option as Meta key" turned on in your terminal's settings.)
 
 ```
 loxx ❯ undo my last commit

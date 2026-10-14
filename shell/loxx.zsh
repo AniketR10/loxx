@@ -46,7 +46,7 @@ add-zsh-hook zshexit _loxx_exit
 # Run first among precmd hooks so $? is still the command's exit status.
 precmd_functions=(_loxx_precmd ${precmd_functions:#_loxx_precmd})
 
-# Ctrl-G opens the search with the line as the query; the choice fills the line, never runs.
+# Ctrl-Alt-G opens the search with the line as the query; the choice fills the line, never runs.
 _loxx_search() {
   local chosen
   chosen=$("$_loxx_bin" panel --cwd "$PWD" --session "$_loxx_session" --query "$BUFFER")
@@ -60,14 +60,14 @@ _loxx_search() {
 zle -N _loxx_search
 () {
   local map was
-  # Only where Ctrl-G still does zsh's default.
+  # Only where Ctrl-Alt-G still does zsh's default.
   for map in emacs viins vicmd; do
-    was=$(bindkey -M $map '^G')
-    [[ ${was##* } == (send-break|list-expand|undefined-key) ]] && bindkey -M $map '^G' _loxx_search
+    was=$(bindkey -M $map '^[^G')
+    [[ ${was##* } == (send-break|undefined-key) ]] && bindkey -M $map '^[^G' _loxx_search
   done
 }
 
 # Startup line (hidden by LOXX_QUIET=1).
 if [[ ${LOXX_QUIET:-0} != 1 && -t 1 ]]; then
-  print -r -- $'\e[2m''loxx is on: press Ctrl-G to search your history, e.g. "undo my last commit".'$'\e[0m'
+  print -r -- $'\e[2m''loxx is on: press Ctrl-Alt-G to search your history, e.g. "undo my last commit".'$'\e[0m'
 fi

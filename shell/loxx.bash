@@ -90,7 +90,7 @@ loxx() {
   printf '\033[2m↑ to use: %s\033[0m\n' "$chosen" >&2
 }
 
-# Ctrl-G opens the search with the line as the query; the choice fills the line, never runs.
+# Ctrl-Alt-G opens the search with the line as the query; the choice fills the line, never runs.
 _loxx_search() {
   local chosen
   chosen=$("$_loxx_bin" panel --cwd "$PWD" --session "$_loxx_session" --query "$READLINE_LINE") || return 0
@@ -99,11 +99,12 @@ _loxx_search() {
   READLINE_POINT=${#chosen}
 }
 _loxx_bind_search() {
-  local map
+  local map was
   for map in emacs vi-insert; do
-    # Only where Ctrl-G still does bash's default.
-    bind -m "$map" -p 2>/dev/null | grep -qxE '"\\C-g": (abort|self-insert)' || continue
-    bind -m "$map" -x '"\C-g": _loxx_search'
+    # Only where Ctrl-Alt-G still does bash's default.
+    was=$(bind -m "$map" -p 2>/dev/null | grep -F '"\e\C-g"')
+    [[ -z $was || $was == '"\e\C-g": abort' ]] || continue
+    bind -m "$map" -x '"\e\C-g": _loxx_search'
   done
 }
 [[ $- == *i* ]] && _loxx_bind_search 2>/dev/null
@@ -113,5 +114,5 @@ _loxx_bind_search() {
 
 # Startup line, only in an interactive terminal (never in scp or scripts).
 if [[ ${LOXX_QUIET:-0} != 1 && $- == *i* && -t 1 ]]; then
-  printf '\033[2mloxx is on: press Ctrl-G to search your history, e.g. "undo my last commit".\033[0m\n'
+  printf '\033[2mloxx is on: press Ctrl-Alt-G to search your history, e.g. "undo my last commit".\033[0m\n'
 fi
