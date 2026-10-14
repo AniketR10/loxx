@@ -27,6 +27,7 @@ func commands() []command {
 		{name: "panel", summary: "open the search list (same as plain `loxx`)", run: runPanel},
 		{name: "record", summary: "save a finished command (used by the shell hook)", run: runRecord},
 		{name: "search", summary: "search saved commands and print the matches", run: runSearch},
+		{name: "suggest", summary: "print matches for a partly typed line (used by the zsh hook)", run: runSuggest},
 		{name: "setup", summary: "add loxx to your shell settings and load your history", run: runSetup},
 		{name: "status", summary: "show what is saved and whether loxx is working", run: runStatus},
 		{name: "uninstall", summary: "remove loxx (and, if you want, your saved history)", run: runUninstall},
