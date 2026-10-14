@@ -1,10 +1,5 @@
-# loxx shell integration for bash (bash 4.4+). Load it at the END of ~/.bashrc:
-#   eval "$(loxx init bash)"
-#
-# After every command, `loxx record` runs in the background, so the prompt never
-# waits for it. Commands starting with a space are not recorded. bash has no
-# native preexec hook, so this uses bash-preexec (below), which relies on
-# PROMPT_COMMAND and, before bash 5.3, the DEBUG trap.
+# loxx hook for bash 4.4+. Load at the end of ~/.bashrc: eval "$(loxx init bash)"
+# bash-preexec (below) provides the preexec hook bash lacks.
 
 _loxx_bin=__LOXX_BIN__
 
@@ -18,10 +13,7 @@ __BASH_PREEXEC__
 __LOXX_BASH_PREEXEC__
 fi
 
-# bash-preexec removes "ignorespace" from HISTCONTROL so it can see every
-# command. That would make bash save space-prefixed commands to its history
-# file, so remember whether the user asked for ignorespace, and _loxx_preexec
-# deletes those commands from bash's history itself.
+# bash-preexec turns ignorespace off; keep space-prefixed commands out of history.
 if declare -F __bp_adjust_histcontrol >/dev/null && ! declare -F _loxx_bp_adjust_histcontrol >/dev/null; then
   _loxx_def=$(declare -f __bp_adjust_histcontrol)
   eval "_loxx_bp_adjust_histcontrol ${_loxx_def#__bp_adjust_histcontrol }"
@@ -70,9 +62,7 @@ _loxx_precmd() {
   _loxx_cmd=''
 }
 
-# If the shell exits while a command is still running (e.g. the terminal
-# window is closed during ssh or tmux), precmd never runs; record the command
-# on exit instead, with its exit code and duration unknown.
+# Shell exiting mid-command (window closed): record it without exit code.
 _loxx_exit() {
   [[ -n $_loxx_cmd ]] || return 0
   "$_loxx_bin" record --start "$_loxx_start" --cwd "$_loxx_cwd" \
@@ -88,10 +78,7 @@ if [[ -z ${_loxx_exit_installed:-} ]]; then
   trap '_loxx_exit; eval "$_loxx_prev_exit_trap"' EXIT
 fi
 
-# Typing `loxx` with no arguments opens the search panel. bash cannot pre-fill
-# the next prompt, so the chosen command goes into history: one Up arrow away,
-# ready to edit. It is never run for you. With arguments, `loxx` is the loxx
-# binary (`loxx search …`, `loxx import`, …).
+# `loxx` alone opens the search panel; with arguments it's the binary.
 loxx() {
   if (($#)); then
     LOXX_HOOK=bash "$_loxx_bin" "$@" # tells `loxx status` the hook is active here
@@ -103,5 +90,71 @@ loxx() {
   printf '\033[2m↑ to use: %s\033[0m\n' "$chosen" >&2
 }
 
+# Enter on a line that isn't a command opens the list with it as the search;
+# the choice replaces the line. Off with LOXX_SUGGEST=0.
+_loxx_enter() {
+  local line=$READLINE_LINE word chosen query
+  bind '"\e[1920~": accept-line'
+  if [[ $line == loxx ]]; then
+    query='' # plain `loxx`: open the list here too, so the choice lands on the line
+  else
+    [[ ${LOXX_SUGGEST:-1} != 0 && -n $line && $line != [[:space:]]* ]] || return 0
+    [[ $line != "${_loxx_declined:-}" ]] || return 0 # Esc'd once: run it as typed
+    word=${line%%[[:space:]]*}
+    # Paths, assignments and shell syntax are bash's to handle.
+    [[ $word == *[/=\$\`\(\)\{\}\<\>\|\&\;\!\'\"\\~*?\[]* ]] && return 0
+    type -t -- "$word" >/dev/null && return 0
+    query=$line
+  fi
+  bind '"\e[1920~": redraw-current-line'
+  if chosen=$("$_loxx_bin" panel --cwd "$PWD" --session "$_loxx_session" --query "$query" 2>/dev/null) && [[ -n $chosen ]]; then
+    READLINE_LINE=$chosen
+    READLINE_POINT=${#chosen}
+    _loxx_declined=''
+  elif [[ -n $query ]]; then
+    _loxx_declined=$line
+  else
+    READLINE_LINE='' # cancelled plain `loxx`: leave an empty line
+    READLINE_POINT=0
+  fi
+}
+_loxx_bind_enter() {
+  local map
+  for map in emacs vi-insert; do
+    # Only where Enter is still accept-line.
+    bind -m "$map" -p 2>/dev/null | grep -qx '"\\C-m": accept-line' || continue
+    bind -m "$map" -x '"\e[1919~": _loxx_enter'
+    bind -m "$map" '"\e[1920~": accept-line'
+    bind -m "$map" '"\C-m": "\e[1919~\e[1920~"'
+  done
+}
+[[ $- == *i* ]] && _loxx_bind_enter 2>/dev/null
+
+# "● loxx" at the right of the prompt, drawn before it (PS1 untouched).
+_loxx_ran=''
+_loxx_badge() {
+  [[ ${LOXX_QUIET:-0} == 1 || ! -t 1 ]] && return 0
+  [[ -n $_loxx_ran ]] || printf '\e7\e[A\e[%dG\e[K\e8' $(( ${COLUMNS:-80} - 5 ))
+  _loxx_ran=''
+  printf '\e7\e[%dG\e[1;38;5;28m● loxx\e[0m\e8' $(( ${COLUMNS:-80} - 5 ))
+}
+# Clears the badge from the line just run.
+_loxx_badge_ran() {
+  _loxx_ran=1
+  [[ ${LOXX_QUIET:-0} == 1 || ! -t 1 || $1 == *$'\n'* ]] && return 0
+  printf '\e7\e[A\e[%dG\e[K\e8' $(( ${COLUMNS:-80} - 5 ))
+}
+
 [[ " ${preexec_functions[*]-} " == *" _loxx_preexec "* ]] || preexec_functions+=(_loxx_preexec)
+[[ " ${preexec_functions[*]-} " == *" _loxx_badge_ran "* ]] || preexec_functions+=(_loxx_badge_ran)
 [[ " ${precmd_functions[*]-} " == *" _loxx_precmd "* ]] || precmd_functions+=(_loxx_precmd)
+[[ " ${precmd_functions[*]-} " == *" _loxx_badge "* ]] || precmd_functions+=(_loxx_badge)
+
+# Startup line, only in an interactive terminal (never in scp or scripts).
+if [[ ${LOXX_QUIET:-0} != 1 && $- == *i* && -t 1 ]]; then
+  if [[ ${LOXX_SUGGEST:-1} != 0 ]]; then
+    printf '\033[2mloxx is on: type what you want to do, like "undo my last commit", and press Enter.\033[0m\n'
+  else
+    printf '\033[2mloxx is on: type loxx to search your history by meaning.\033[0m\n'
+  fi
+fi
