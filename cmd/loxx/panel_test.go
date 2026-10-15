@@ -18,10 +18,7 @@ func TestLocFunction(t *testing.T) {
 	for _, sh := range shells {
 		t.Run(sh.name, func(t *testing.T) {
 			s := startShell(t, sh.name, sh.args)
-			use := "\r" // zsh: the prompt already holds the command (print -z)
-			if sh.name == "bash" {
-				use = keyUp + "\r" // bash: one ↑ away
-			}
+			use := "\r" // the prompt already holds the command (zsh: print -z; bash: loxx's Enter)
 			enter := func(line string) { s.key(line+"\r", 300*time.Millisecond) }
 			s.typeLines(`eval "$('`+bin+`' init `+sh.name+`)"`, `loxx add 'echo picked-$((40+2))'`)
 			enter("loxx")
