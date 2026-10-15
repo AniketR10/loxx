@@ -109,10 +109,32 @@ _loxx_bind_search() {
 }
 [[ $- == *i* ]] && _loxx_bind_search 2>/dev/null
 
+# Enter on the line `loxx` opens the search here, so the choice fills the line.
+_loxx_enter() {
+  bind '"\e[1920~": accept-line'
+  [[ $READLINE_LINE == loxx ]] || return 0
+  bind '"\e[1920~": redraw-current-line'
+  local chosen
+  chosen=$("$_loxx_bin" panel --cwd "$PWD" --session "$_loxx_session")
+  READLINE_LINE=$chosen
+  READLINE_POINT=${#chosen}
+}
+_loxx_bind_enter() {
+  local map
+  for map in emacs vi-insert; do
+    # Only where Enter is still accept-line; \e[1919~ and \e[1920~ are never sent by a terminal.
+    bind -m "$map" -p 2>/dev/null | grep -qx '"\\C-m": accept-line' || continue
+    bind -m "$map" -x '"\e[1919~": _loxx_enter'
+    bind -m "$map" '"\e[1920~": accept-line'
+    bind -m "$map" '"\C-m": "\e[1919~\e[1920~"'
+  done
+}
+[[ $- == *i* ]] && _loxx_bind_enter 2>/dev/null
+
 [[ " ${preexec_functions[*]-} " == *" _loxx_preexec "* ]] || preexec_functions+=(_loxx_preexec)
 [[ " ${precmd_functions[*]-} " == *" _loxx_precmd "* ]] || precmd_functions+=(_loxx_precmd)
 
 # Startup line, only in an interactive terminal (never in scp or scripts).
 if [[ ${LOXX_QUIET:-0} != 1 && $- == *i* && -t 1 ]]; then
-  printf '\033[2mloxx is on: press Ctrl-Alt-G to search your history, e.g. "undo my last commit".\033[0m\n'
+  printf '\033[2mloxx is on: type `loxx` or press Ctrl-Alt-G to search your history, e.g. "undo my last commit".\033[0m\n'
 fi

@@ -19,7 +19,6 @@ func (s *session) key(k string, wait time.Duration) {
 }
 
 const (
-	keyUp       = "\x1b[A"
 	keyEsc      = "\x1b"
 	keyCtrlAltG = "\x1b\x07"
 )
@@ -31,7 +30,7 @@ func TestSearchKey(t *testing.T) {
 		t.Run(sh.name, func(t *testing.T) {
 			s := startShell(t, sh.name, sh.args)
 			s.typeLines(`eval "$('`+bin+`' init `+sh.name+`)"`, `loxx add 'echo picked-$((40+2))'`)
-			if !strings.Contains(s.out.String(), "loxx is on: press Ctrl-Alt-G") {
+			if !strings.Contains(s.out.String(), "loxx is on: type `loxx` or press Ctrl-Alt-G") {
 				t.Errorf("no startup message\nscreen:\n%s", s.out.String())
 			}
 

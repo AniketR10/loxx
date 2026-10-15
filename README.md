@@ -46,8 +46,7 @@ loxx ❯ undo my last commit
 | Enter | Put the command in your prompt, ready to edit or run. |
 | Esc | Close without choosing; your line stays as it was. |
 
-Typing `loxx` and pressing Enter opens the same list. (In bash, the command
-you pick is then one ↑ away.)
+Typing `loxx` and pressing Enter opens the same list.
 
 loxx never runs a command by itself. You always press Enter to run it.
 

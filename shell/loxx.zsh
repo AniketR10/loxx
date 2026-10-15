@@ -69,5 +69,5 @@ zle -N _loxx_search
 
 # Startup line (hidden by LOXX_QUIET=1).
 if [[ ${LOXX_QUIET:-0} != 1 && -t 1 ]]; then
-  print -r -- $'\e[2m''loxx is on: press Ctrl-Alt-G to search your history, e.g. "undo my last commit".'$'\e[0m'
+  print -r -- $'\e[2m''loxx is on: type `loxx` or press Ctrl-Alt-G to search your history, e.g. "undo my last commit".'$'\e[0m'
 fi
