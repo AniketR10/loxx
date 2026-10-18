@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -48,6 +49,7 @@ func TestLocFunction(t *testing.T) {
 // and only the chosen command may come out on stdout.
 func TestPanel(t *testing.T) {
 	bin := buildLoc(t)
+	t.Setenv("PATH", t.TempDir()) // no installed tools: history only (TestPanelLibrary covers the rest)
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "history.db")
 	loxx := func(args ...string) {
@@ -116,5 +118,37 @@ func TestPanel(t *testing.T) {
 				t.Errorf("stdout %q, exit %d; want %q, exit %d\nscreen:\n%s", stdout.String(), code, tt.want, tt.code, s.out.String())
 			}
 		})
+	}
+}
+
+// TestPanelLibrary picks a library suggestion: it needs its tool on PATH, and
+// --cursor says where its first placeholder is.
+func TestPanelLibrary(t *testing.T) {
+	bin := buildLoc(t)
+	tools := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tools, "git"), nil, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", tools) // only "git" is installed
+	dir := t.TempDir()
+	var stdout bytes.Buffer
+	s := startPTY(t, dir, filepath.Join(dir, "empty.db"), &stdout, bin, "panel", "--cursor", "--query", "delete a branch on the remote")
+	time.Sleep(2 * time.Second) // the meaning search
+	if _, err := s.master.WriteString("\r"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.cmd.Wait(); err != nil {
+		t.Fatalf("%v\nscreen:\n%s", err, s.out.String())
+	}
+	<-s.copied
+	if !strings.Contains(s.out.String(), "suggested") {
+		t.Errorf("no suggested label\nscreen:\n%s", s.out.String())
+	}
+	cursor, cmd, ok := strings.Cut(strings.TrimSuffix(stdout.String(), "\n"), "\t")
+	if !ok || !strings.HasPrefix(cmd, "git ") {
+		t.Fatalf("stdout %q, want \"<cursor>\\tgit …\"", stdout.String())
+	}
+	if n, err := strconv.Atoi(cursor); err != nil || n <= len("git ") || n >= len(cmd) {
+		t.Errorf("cursor %q is not on a placeholder in %q", cursor, cmd)
 	}
 }

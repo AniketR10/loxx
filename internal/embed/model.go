@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-// Architecture of all-MiniLM-L6-v2 (see ROADMAP.md §3).
+// Architecture of all-MiniLM-L6-v2.
 const (
 	Dims      = 384 // output vector size
 	MaxTokens = 256 // sentence-transformers max_seq_length, incl. [CLS] and [SEP]
@@ -180,7 +180,7 @@ func (m *Model) Embed(text string) []float32 {
 }
 
 // apply computes y = x·Wᵀ + b. Tiling, wider kernels and threading were
-// measured and didn't help (ROADMAP Phase 2).
+// measured and didn't help.
 func (l linear) apply(x []float32, n int, y []float32) {
 	in, out := l.in, l.out
 	for o := 0; o < out; o++ {

@@ -48,11 +48,11 @@ precmd_functions=(_loxx_precmd ${precmd_functions:#_loxx_precmd})
 
 # Ctrl-Alt-G opens the search with the line as the query; the choice fills the line, never runs.
 _loxx_search() {
-  local chosen
-  chosen=$("$_loxx_bin" panel --cwd "$PWD" --session "$_loxx_session" --query "$BUFFER")
-  if (( ! $? )) && [[ -n $chosen ]]; then
-    BUFFER=$chosen
-    CURSOR=${#BUFFER}
+  local out
+  out=$("$_loxx_bin" panel --cwd "$PWD" --session "$_loxx_session" --query "$BUFFER" --cursor)
+  if (( ! $? )) && [[ -n $out ]]; then
+    BUFFER=${out#*$'\t'} # "<cursor>\t<command>"
+    CURSOR=${out%%$'\t'*}
   fi
   zle reset-prompt
   return 0 # a widget ending in failure makes zsh beep

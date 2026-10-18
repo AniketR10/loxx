@@ -129,7 +129,7 @@ func TestEmbedGoldenF32(t *testing.T) {
 func TestF16Table(t *testing.T) {
 	table := f16Table()
 	for h := range 1 << 16 {
-		if got, want := math.Float32bits(table[h]), math.Float32bits(f16ToF32(uint16(h))); got != want {
+		if got, want := math.Float32bits(table[h]), math.Float32bits(F16ToF32(uint16(h))); got != want {
 			t.Fatalf("table[%#04x] = %#08x, want %#08x", h, got, want)
 		}
 	}

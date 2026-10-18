@@ -17,7 +17,14 @@ MODEL_FILE := internal/embed/model/minilm-l6-v2.f16.safetensors
 MODEL_SHA256 := aa3d97aea538b3247506fd426683a526d23ed345ac2c20ea3172296f57ea272b
 MODEL_URL := https://github.com/AniketR10/loxx/releases/download/model-minilm-l6-v2-f16/minilm-l6-v2.f16.safetensors
 
-.PHONY: model build dist test lint bench fuzz check-static clean
+# Library files aren't in git either: `make library` downloads and verifies
+# them (rebuild them with tools/library).
+LIBRARY_DIR := internal/library/data
+LIBRARY_URL := https://github.com/AniketR10/loxx/releases/download/library-tldr-273668766e52
+LIBRARY_FILES := linux.lib:4c1b1b9c9177716851d7fa7b3ede31321d452bd04683f7091d621cf51412a617 \
+	darwin.lib:8bb2640a257bffa32cdf625bb7da43fded5b1d3e09dafa43813bf2ef9e349956
+
+.PHONY: model library build dist test lint bench fuzz check-static clean
 
 model:
 	@if [ -f $(MODEL_FILE) ] && [ "$(call sha256,$(MODEL_FILE))" = $(MODEL_SHA256) ]; then \
@@ -31,13 +38,28 @@ model:
 		echo 'model: downloaded, SHA-256 verified'; \
 	fi
 
-build: model
+library:
+	@mkdir -p $(LIBRARY_DIR)
+	@for entry in $(LIBRARY_FILES); do \
+		name=$${entry%%:*} want=$${entry#*:} file=$(LIBRARY_DIR)/$${entry%%:*}; \
+		if [ -f $$file ] && [ "$(call sha256,$$file)" = $$want ]; then \
+			echo "library: $$name present, SHA-256 verified"; continue; \
+		fi; \
+		echo "library: downloading $(LIBRARY_URL)/$$name"; \
+		curl -fsSL --retry 3 -o $$file.tmp $(LIBRARY_URL)/$$name \
+			&& [ "$(call sha256,$$file.tmp)" = $$want ] \
+			|| { rm -f $$file.tmp; echo "library: $$name download failed or SHA-256 mismatch"; exit 1; }; \
+		mv $$file.tmp $$file; \
+		echo "library: $$name downloaded, SHA-256 verified"; \
+	done
+
+build: model library
 	go build -trimpath -ldflags '$(LDFLAGS)' -o bin/loxx ./cmd/loxx
 
 # Release assets, named as install.sh expects: a binary for each system and
 # architecture (loxx-<os>-<arch>), the installer, and checksums for all of them.
 DIST_TARGETS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
-dist: model
+dist: model library
 	rm -rf dist && mkdir -p dist
 	for target in $(DIST_TARGETS); do \
 		os=$${target%/*} arch=$${target#*/}; \
@@ -47,14 +69,14 @@ dist: model
 	cp install.sh dist/install.sh
 	cd dist && $(SHA256SUM) loxx-* install.sh >checksums.txt
 
-test: model
+test: model library
 	go test ./...
 
-lint: model
+lint: model library
 	go vet ./...
 	go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
 
-bench: model
+bench: model library
 	go test -run '^$$' -bench . -benchmem ./...
 
 FUZZTIME ?= 60s

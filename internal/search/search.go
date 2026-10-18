@@ -3,12 +3,17 @@ package search
 import (
 	"cmp"
 	"context"
+	"os"
 	"slices"
 	"sync"
 
 	"github.com/AniketR10/loxx/internal/embed"
+	"github.com/AniketR10/loxx/internal/library"
 	"github.com/AniketR10/loxx/internal/store"
 )
+
+// libraryRows is the most library suggestions one search shows.
+const libraryRows = 5
 
 // candidates is how many results each side contributes to fusion.
 const candidates = 50
@@ -22,7 +27,7 @@ type Params struct {
 	RRFK           float64
 }
 
-// DefaultParams were tuned on two eval sets from real history (ROADMAP Phase 3).
+// DefaultParams were tuned on two eval sets from real history.
 var DefaultParams = Params{
 	KeywordMode:    store.MatchAll,
 	KeywordWeight:  0.5,
@@ -41,6 +46,12 @@ type Searcher struct {
 	vectors []float32
 	dims    int
 	loadErr error
+
+	// Library entries whose program is installed, and their vectors.
+	lib     *library.Library
+	libRows []int
+	libPos  []int64 // 0..len(libRows)-1, for topKByDot
+	libVecs []float32
 }
 
 // New returns a Searcher and starts loading the model and vectors, in
@@ -53,10 +64,14 @@ func New(ctx context.Context, db *store.DB) *Searcher {
 			wg       sync.WaitGroup
 			modelErr error
 		)
-		wg.Add(1)
+		wg.Add(2)
 		go func() {
 			defer wg.Done()
 			s.model, modelErr = embed.Default()
+		}()
+		go func() {
+			defer wg.Done()
+			s.loadLibrary()
 		}()
 		s.ids, s.vectors, s.dims, s.loadErr = db.EmbeddingMatrix(ctx, embed.ModelID)
 		wg.Wait()
@@ -74,35 +89,82 @@ func (s *Searcher) SemanticErr() error {
 	return s.loadErr
 }
 
-// Search returns up to limit commands for query kept by f, best first.
+// Search returns up to limit results for query kept by f, best first. With no
+// filter, history containing the query's words comes first, then the rest of
+// history alternates with library suggestions.
 func (s *Searcher) Search(ctx context.Context, query string, limit int, p Params, f store.Filter) ([]store.Result, error) {
-	ids, err := s.Rank(ctx, query, limit, p, f)
+	ids, words, q, err := s.rank(ctx, query, limit, p, f)
 	if err != nil {
 		return nil, err
 	}
-	return s.db.Results(ctx, ids)
+	results, err := s.db.Results(ctx, ids)
+	if err != nil || !f.IsZero() || q == nil {
+		return results, err
+	}
+	seen := map[string]bool{}
+	for _, r := range results {
+		seen[r.Text] = true
+	}
+	var lib []store.Result
+	for _, r := range s.librarySearch(q, libraryRows+len(results)) {
+		if !seen[r.Text] && len(lib) < libraryRows {
+			lib = append(lib, r)
+		}
+	}
+	var merged, rest []store.Result
+	for _, r := range results {
+		if words[r.CommandID] {
+			merged = append(merged, r)
+		} else {
+			rest = append(rest, r)
+		}
+	}
+	for i := 0; i < max(len(rest), len(lib)); i++ {
+		if i < len(rest) {
+			merged = append(merged, rest[i])
+		}
+		if i < len(lib) {
+			merged = append(merged, lib[i])
+		}
+	}
+	return merged[:min(limit, len(merged))], nil
 }
 
 // Rank returns the ids of up to limit commands for query kept by f, best
 // first. It waits for the model and vectors to load.
 func (s *Searcher) Rank(ctx context.Context, query string, limit int, p Params, f store.Filter) ([]int64, error) {
+	ids, _, _, err := s.rank(ctx, query, limit, p, f)
+	return ids, err
+}
+
+// rank is Rank, also returning the keyword matches and the query's vector
+// (nil without the model).
+func (s *Searcher) rank(ctx context.Context, query string, limit int, p Params, f store.Filter) ([]int64, map[int64]bool, []float32, error) {
+	words := map[int64]bool{}
 	var keyword []int64
 	if p.KeywordWeight > 0 {
 		var err error
 		if keyword, err = s.db.KeywordIDs(ctx, query, p.KeywordMode, f, candidates); err != nil {
-			return nil, err
+			return nil, nil, nil, err
+		}
+		for _, id := range keyword {
+			words[id] = true
 		}
 	}
 	var semantic []int64
-	if p.SemanticWeight > 0 {
+	var q []float32
+	if p.SemanticWeight > 0 && s.SemanticErr() == nil {
 		allowed, err := s.db.FilterIDs(ctx, f)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
-		semantic = s.semantic(query, allowed, candidates)
+		q = s.model.Embed(query)
+		for _, t := range s.semantic(q, allowed, candidates) {
+			semantic = append(semantic, t.id)
+		}
 	}
 	ids := fuse(keyword, semantic, p)
-	return ids[:min(limit, len(ids))], nil
+	return ids[:min(limit, len(ids))], words, q, nil
 }
 
 // Keyword returns up to limit commands matching query as keywords, kept by f.
@@ -124,18 +186,44 @@ func (s *Searcher) Recent(ctx context.Context, limit int, f store.Filter) ([]sto
 	return s.db.Results(ctx, ids)
 }
 
-// semantic returns the k closest commands among allowed (nil: all), or nil
-// without the model, so keywords still work (P7).
-func (s *Searcher) semantic(query string, allowed map[int64]bool, k int) []int64 {
-	if s.SemanticErr() != nil || len(s.ids) == 0 {
+// semantic returns the k commands among allowed (nil: all) closest to q.
+func (s *Searcher) semantic(q []float32, allowed map[int64]bool, k int) []scored {
+	if len(s.ids) == 0 {
 		return nil
 	}
-	top := topKByDot(s.model.Embed(query), s.ids, s.vectors, s.dims, k, allowed)
-	ids := make([]int64, len(top))
-	for i, t := range top {
-		ids[i] = t.id
+	return topKByDot(q, s.ids, s.vectors, s.dims, k, allowed)
+}
+
+// loadLibrary keeps the library entries whose program is installed. Without a
+// library (or with one made by another model), search is history only.
+func (s *Searcher) loadLibrary() {
+	l, err := library.Default()
+	if err != nil || l == nil || l.ModelID != embed.ModelID {
+		return
 	}
-	return ids
+	rows := l.Installed(os.Getenv("PATH"))
+	vecs := make([]float32, len(rows)*l.Dims())
+	for i, r := range rows {
+		l.Vector(r, vecs[i*l.Dims():])
+	}
+	pos := make([]int64, len(rows))
+	for i := range pos {
+		pos[i] = int64(i)
+	}
+	s.lib, s.libRows, s.libPos, s.libVecs = l, rows, pos, vecs
+}
+
+// librarySearch returns the k library entries closest to q, as results.
+func (s *Searcher) librarySearch(q []float32, k int) []store.Result {
+	if len(s.libRows) == 0 {
+		return nil
+	}
+	var out []store.Result
+	for _, t := range topKByDot(q, s.libPos, s.libVecs, s.lib.Dims(), k, nil) {
+		e := s.lib.Entries[s.libRows[t.id]]
+		out = append(out, store.Result{Text: e.Command, Library: true, Desc: e.Desc, Cursor: e.Cursor})
+	}
+	return out
 }
 
 // fuse merges two rankings with weighted Reciprocal Rank Fusion. Ties go to

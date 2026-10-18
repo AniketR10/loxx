@@ -79,7 +79,7 @@ the cost.
    Re-run it on every ranking change (Phase 3), and grow it when real searches
    fail.
 5. **Scrubbing real history found a gap** that the synthetic corpus missed
-   (Langfuse `sk-lf-<uuid>` keys; see the ROADMAP backlog). Real data beats
+   (Langfuse `sk-lf-<uuid>` keys). Real data beats
    invented test cases.
 
 ### General (any project choosing an embedding model)

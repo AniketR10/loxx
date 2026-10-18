@@ -92,11 +92,11 @@ loxx() {
 
 # Ctrl-Alt-G opens the search with the line as the query; the choice fills the line, never runs.
 _loxx_search() {
-  local chosen
-  chosen=$("$_loxx_bin" panel --cwd "$PWD" --session "$_loxx_session" --query "$READLINE_LINE") || return 0
-  [[ -n $chosen ]] || return 0
-  READLINE_LINE=$chosen
-  READLINE_POINT=${#chosen}
+  local out
+  out=$("$_loxx_bin" panel --cwd "$PWD" --session "$_loxx_session" --query "$READLINE_LINE" --cursor) || return 0
+  [[ -n $out ]] || return 0
+  READLINE_LINE=${out#*$'\t'} # "<cursor>\t<command>"
+  READLINE_POINT=${out%%$'\t'*}
 }
 _loxx_bind_search() {
   local map was
@@ -114,10 +114,10 @@ _loxx_enter() {
   bind '"\e[1920~": accept-line'
   [[ $READLINE_LINE == loxx ]] || return 0
   bind '"\e[1920~": redraw-current-line'
-  local chosen
-  chosen=$("$_loxx_bin" panel --cwd "$PWD" --session "$_loxx_session")
-  READLINE_LINE=$chosen
-  READLINE_POINT=${#chosen}
+  local out
+  out=$("$_loxx_bin" panel --cwd "$PWD" --session "$_loxx_session" --cursor)
+  READLINE_LINE=${out#*$'\t'} # "<cursor>\t<command>", or nothing if cancelled
+  READLINE_POINT=${out%%$'\t'*}
 }
 _loxx_bind_enter() {
   local map
