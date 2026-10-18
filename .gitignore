@@ -11,3 +11,9 @@
 
 # Model weights are downloaded by `make model`, not stored in git
 /internal/embed/model/*.safetensors
+
+# Library files are downloaded by `make library`, not stored in git
+/internal/library/data/
+
+# Private planning notes, kept out of the repository
+/ROADMAP.md

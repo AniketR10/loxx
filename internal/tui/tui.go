@@ -33,19 +33,19 @@ const (
 	debounce = 150 * time.Millisecond
 )
 
-// filters, in the order Tab cycles through them (user decision, ROADMAP §3).
+// filters, in the order Tab cycles through them.
 var filters = []string{"all", "this dir", "this session", "failed"}
 
 // Run shows the panel on tty until the user picks a command or cancels, and
-// returns the chosen command ("" when cancelled).
-func Run(ctx context.Context, s *search.Searcher, tty *os.File, opt Options) (string, error) {
+// returns the chosen result (with no Text when cancelled).
+func Run(ctx context.Context, s *search.Searcher, tty *os.File, opt Options) (store.Result, error) {
 	if opt.Height <= 0 {
 		opt.Height = defaultHeight
 	}
 	m := &model{ctx: ctx, s: s, opt: opt, query: []rune(opt.Query)}
 	final, err := tea.NewProgram(m, tea.WithInput(tty), tea.WithOutput(tty)).Run()
 	if err != nil {
-		return "", err
+		return store.Result{}, err
 	}
 	return final.(*model).chosen, nil
 }
@@ -67,7 +67,7 @@ type model struct {
 	err      error
 	width    int
 	height   int
-	chosen   string
+	chosen   store.Result
 	done     bool
 }
 
@@ -176,7 +176,7 @@ func (m *model) key(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "enter":
 		if m.selected < len(m.results) {
-			m.chosen = m.results[m.selected].Text
+			m.chosen = m.results[m.selected]
 		}
 		m.done = true
 		return m, tea.Quit
@@ -222,6 +222,7 @@ const (
 	reverse = "\x1b[7m"
 	green   = "\x1b[32m"
 	red     = "\x1b[31m"
+	pink    = "\x1b[38;5;168m" // dark pink (#d75f87), for "suggested"
 	reset   = "\x1b[0m"
 )
 
@@ -262,6 +263,13 @@ func (m *model) View() tea.View {
 // details, cut to the terminal width.
 func (m *model) row(r store.Result, selected bool, width int, now time.Time) string {
 	text := strings.ReplaceAll(r.Text, "\n", " ↵ ")
+	marker, style := "  ", ""
+	if selected {
+		marker, style = "▸ ", bold
+	}
+	if r.Library {
+		return ansi.Truncate(marker+style+text+reset+"  "+pink+"suggested"+reset+dim+" · "+r.Desc+reset, width, "…")
+	}
 	var details []string
 	if r.Cwd != "" {
 		details = append(details, format.TildePath(r.Cwd, m.opt.Home))
@@ -281,10 +289,6 @@ func (m *model) row(r store.Result, selected bool, width int, now time.Time) str
 		} else {
 			status = " " + red + "✗" + reset
 		}
-	}
-	marker, style := "  ", ""
-	if selected {
-		marker, style = "▸ ", bold
 	}
 	line := marker + style + text + reset + "  " + dim + strings.Join(details, " · ") + reset + status
 	return ansi.Truncate(line, width, "…")

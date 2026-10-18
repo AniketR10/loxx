@@ -16,6 +16,11 @@ type Result struct {
 	LastRun   *time.Time // start of the most recent run with a known time; nil if none (e.g. imported)
 	Cwd       string     // "" when unknown
 	ExitCode  *int       // nil when unknown
+
+	// Set for built-in library suggestions, which were never run here.
+	Library bool
+	Desc    string // what it does
+	Cursor  int    // byte offset of the first placeholder
 }
 
 // MatchMode says how the words of a keyword query combine.

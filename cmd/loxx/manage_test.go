@@ -196,8 +196,10 @@ func TestForgetCommand(t *testing.T) {
 	if !strings.Contains(stderr, "forgot 2 command(s) (2 runs)") {
 		t.Errorf("forget --match output:\n%s", stderr)
 	}
-	if code := run([]string{"search", "internal"}, &strings.Builder{}, &strings.Builder{}); code != 1 {
-		t.Error("forgotten commands can still be found")
+	var found strings.Builder
+	run([]string{"search", "internal"}, &found, &strings.Builder{}) // library suggestions may still match
+	if strings.Contains(found.String(), "internal.example.com") {
+		t.Errorf("forgotten commands can still be found:\n%s", found.String())
 	}
 	if _, stderr = runOK(t, "forget", "--last", "--yes"); !strings.Contains(stderr, "git status") {
 		t.Errorf("forget --last should name the most recent command:\n%s", stderr)

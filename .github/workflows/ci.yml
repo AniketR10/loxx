@@ -26,12 +26,14 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      # Model weights come from `make model`; cache them.
-      - name: Cache model weights
+      # Model weights and library files come from `make model` and `make library`; cache them.
+      - name: Cache model weights and library
         uses: actions/cache@v6
         with:
-          path: internal/embed/model/minilm-l6-v2.f16.safetensors
-          key: model-${{ hashFiles('Makefile') }}
+          path: |
+            internal/embed/model/minilm-l6-v2.f16.safetensors
+            internal/library/data
+          key: model-library-${{ hashFiles('Makefile') }}
       - name: Install zsh (for the shell hook tests; macOS already has it)
         if: runner.os == 'Linux'
         run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends zsh

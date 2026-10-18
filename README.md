@@ -2,7 +2,8 @@
 
 # loxx
 
-Find any command you ran before, even if you only remember what it did.
+Find any command you ran before, even if you only remember what it did. Or
+one you never ran: loxx also knows thousands of common commands.
 
 Press Ctrl-Alt-G, then describe what you want, like "restart the web server" or
 "undo my last commit". You can also type part of the command, like
@@ -47,6 +48,19 @@ loxx ❯ undo my last commit
 | Esc | Close without choosing; your line stays as it was. |
 
 Typing `loxx` and pressing Enter opens the same list.
+
+The list also suggests common commands you have never run, marked `suggested`, for
+programs installed on your computer:
+
+```
+loxx ❯ delete a branch on the remote
+▸ git branch  ~/code/shop · 2 days ago
+  git push remote_name -d remote_branch_name  suggested · Delete a remote branch
+```
+
+Choosing one puts it in your prompt with the cursor on the first word to
+replace (`remote_name`). Your own commands that contain the words you typed
+come first; after them, your commands and suggestions take turns.
 
 loxx never runs a command by itself. You always press Enter to run it.
 
@@ -104,6 +118,9 @@ never changes your `PATH`.
    ([all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)).
 4. When you search, loxx combines two searches: exact words, and closest
    meaning. So both "port-forward" and "expose my service locally" work.
+5. It also searches a built-in list of about 29,000 example commands from
+   [tldr-pages](https://github.com/tldr-pages/tldr), by meaning, keeping only
+   programs you have installed.
 
 Everything is stored in one SQLite file. The search panel opens in about
 30 ms, even with 100,000 saved commands.
@@ -160,7 +177,8 @@ Use the name of the file you downloaded: `loxx-linux-amd64`, `loxx-linux-arm64`,
 - Your history stays on the computer where you ran the commands.
 - When you search by meaning, loxx always shows the closest matches, even if
   none of them is a good match.
-- loxx is about 54 MB, because the search model is built in.
+- loxx is about 80 MB, because the search model and the command list are
+  built in.
 
 ## Uninstall
 
@@ -187,4 +205,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) to help develop loxx.
 ## License
 
 MIT. See [LICENSE](LICENSE). The built-in search model has its own license:
-[internal/embed/model](internal/embed/model/).
+[internal/embed/model](internal/embed/model/). The built-in command list is
+made from [tldr-pages](https://github.com/tldr-pages/tldr) by the tldr-pages
+team and contributors, under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), with placeholders
+and descriptions simplified: see
+[internal/library/TLDR-LICENSE.md](internal/library/TLDR-LICENSE.md).

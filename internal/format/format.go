@@ -14,6 +14,9 @@ import (
 // Details formats a result's metadata line, e.g.
 // "~/work/api · 3 weeks ago · exit 0 · 4 runs".
 func Details(r store.Result, home string, now time.Time) string {
+	if r.Library {
+		return "suggested · " + r.Desc
+	}
 	var parts []string
 	if r.Cwd != "" {
 		parts = append(parts, TildePath(r.Cwd, home))
@@ -21,7 +24,7 @@ func Details(r store.Result, home string, now time.Time) string {
 	if r.LastRun != nil {
 		parts = append(parts, RelativeTime(*r.LastRun, now))
 	} else {
-		parts = append(parts, "imported") // no run time is known (user decision, ROADMAP §3)
+		parts = append(parts, "imported") // no run time is known
 	}
 	if r.ExitCode != nil {
 		parts = append(parts, fmt.Sprintf("exit %d", *r.ExitCode))

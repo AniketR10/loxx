@@ -40,7 +40,7 @@ Bar agreed in advance: < 5 MB and < 50 ms. Both met.
 
 Caveats accepted:
 - Pinned one release behind: v2.0.10 requires Go 1.26 (the fourth dependency
-  to hit this; see ROADMAP O6).
+  to hit this).
 - It depends on `github.com/charmbracelet/ultraviolet` at an unreleased
   pseudo-version.
 - It sends terminal-capability queries at startup. Real terminals answer

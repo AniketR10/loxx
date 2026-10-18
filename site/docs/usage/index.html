@@ -84,6 +84,15 @@
   </tbody>
 </table></div>
 
+<h3 id="suggested">Commands you never ran</h3>
+<p>With the “all” filter, the list also suggests common commands from a built-in list, marked <span style="color:var(--sug)">suggested</span>, but only for programs installed on your computer:</p>
+<div class="term" role="img" aria-label="The search “delete a branch on the remote” lists a saved git command, then the suggestion git push remote_name -d remote_branch_name marked suggested.">
+<pre><b>loxx ❯</b> delete a branch on the remote<span class="cursor"> </span>
+<span class="sel">▸ git branch</span>  <span class="dim">~/code/shop · 2 days ago</span>
+  git push remote_name -d remote_branch_name  <span class="sug">suggested</span><span class="dim"> · Delete a remote branch</span></pre>
+</div>
+<p>Choosing a suggestion puts it in your prompt with the cursor on the first word to replace, here <code>remote_name</code>. Your own commands that contain the words you typed come first; after them, your commands and suggestions take turns.</p>
+
 <h2 id="meaning">Keyword and meaning</h2>
 <p>Every search runs two ways at once and merges the results:</p>
 <ul>

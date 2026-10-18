@@ -65,5 +65,4 @@ Never commit a real secret, not even an old one.
 - Search combines exact keyword matching with a small built-in language model,
   [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2),
   that understands meaning (`internal/embed`, `internal/search`).
-- Why things were built this way: [docs/decisions](docs/decisions/) and
-  [ROADMAP.md](ROADMAP.md).
+- Why things were built this way: [docs/decisions](docs/decisions/).

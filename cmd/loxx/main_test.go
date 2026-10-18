@@ -71,8 +71,9 @@ func TestAddAndSearch(t *testing.T) {
 	}
 
 	var out, errOut bytes.Buffer
-	if code := run([]string{"search", "private"}, &out, &errOut); code != 1 {
-		t.Errorf("searching an ignored command: exit %d, want 1 (no matches)", code)
+	run([]string{"search", "private"}, &out, &errOut) // library suggestions may still match
+	if strings.Contains(out.String(), "echo private") {
+		t.Errorf("an ignored command was found:\n%s", out.String())
 	}
 
 	// After embedding, search also finds commands by meaning.

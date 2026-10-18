@@ -12,6 +12,7 @@
   --term-dim: #7d909d;
   --ok: #4cbf78;
   --bad: #e2675f;
+  --sug: #d75f87;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --wide: 80rem;
@@ -101,6 +102,7 @@ img { max-width: 100%; height: auto; }
 .term .dim { color: var(--term-dim); }
 .term .ok { color: var(--ok); }
 .term .bad { color: var(--bad); }
+.term .sug { color: var(--sug); }
 .term .sel { font-weight: 700; }
 .term .cursor { background: var(--term-fg); color: var(--term-bg); }
 .term .red { color: #f0b45a; }

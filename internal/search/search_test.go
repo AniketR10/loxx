@@ -1,6 +1,7 @@
 package search
 
 import (
+	"bytes"
 	"context"
 	"path/filepath"
 	"slices"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/AniketR10/loxx/internal/embed"
+	"github.com/AniketR10/loxx/internal/library"
 	"github.com/AniketR10/loxx/internal/scrub"
 	"github.com/AniketR10/loxx/internal/store"
 )
@@ -76,12 +78,41 @@ var cmds = []string{
 	"tar -czvf backup.tar.gz ~/Documents",
 }
 
-func TestSearchHybrid(t *testing.T) {
-	ctx := context.Background()
-	s := New(ctx, history(t, true, cmds...))
+// withLibrary replaces the built-in library with entries, so results don't
+// depend on the real library or on what is installed.
+func withLibrary(t *testing.T, s *Searcher, entries ...library.Entry) {
+	t.Helper()
 	if err := s.SemanticErr(); err != nil {
 		t.Fatal(err)
 	}
+	s.lib, s.libRows, s.libPos, s.libVecs = nil, nil, nil, nil
+	if len(entries) == 0 {
+		return
+	}
+	var vectors [][]float32
+	for _, e := range entries {
+		vectors = append(vectors, s.model.Embed(e.Desc))
+	}
+	var buf bytes.Buffer
+	if err := library.Write(&buf, embed.ModelID, "test", entries, vectors); err != nil {
+		t.Fatal(err)
+	}
+	l, err := library.Read(buf.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range entries {
+		s.libRows = append(s.libRows, i)
+		s.libPos = append(s.libPos, int64(i))
+		s.libVecs = append(s.libVecs, vectors[i]...)
+	}
+	s.lib = l
+}
+
+func TestSearchHybrid(t *testing.T) {
+	ctx := context.Background()
+	s := New(ctx, history(t, true, cmds...))
+	withLibrary(t, s)
 	for query, want := range map[string]string{
 		// No shared words: only semantic search can find these.
 		"restart the web server":       "sudo systemctl restart nginx",
@@ -104,12 +135,57 @@ func TestSearchHybrid(t *testing.T) {
 func TestSearchFallsBackToKeywords(t *testing.T) {
 	ctx := context.Background()
 	s := New(ctx, history(t, false, cmds...))
+	withLibrary(t, s)
 	results, err := s.Search(ctx, "nginx", 3, DefaultParams, store.Filter{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(results) != 1 || results[0].Text != "sudo systemctl restart nginx" {
 		t.Errorf("keyword fallback = %v", texts(results))
+	}
+}
+
+// TestSearchLibraryOrder: history with the query's words, then history and library alternating.
+func TestSearchLibraryOrder(t *testing.T) {
+	ctx := context.Background()
+	s := New(ctx, history(t, true, cmds...))
+	withLibrary(t, s,
+		library.Entry{Tool: "chmod", Command: "chmod +x path/to/file", Cursor: 9, Desc: "Make a file executable"},
+		library.Entry{Tool: "nginx", Command: "nginx -t", Cursor: 8, Desc: "Test the nginx configuration"},
+		library.Entry{Tool: "systemctl", Command: "sudo systemctl restart nginx", Desc: "Restart nginx"},
+	)
+
+	results, err := s.Search(ctx, "nginx", 10, DefaultParams, store.Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := texts(results)
+	if len(got) < 2 || got[0] != "sudo systemctl restart nginx" || results[0].Library {
+		t.Fatalf("a keyword match in history must come first: %v", got)
+	}
+	if !slices.ContainsFunc(results, func(r store.Result) bool { return r.Library && r.Text == "nginx -t" }) {
+		t.Errorf("no library suggestion: %v", got)
+	}
+	if n := slices.Index(got, "sudo systemctl restart nginx"); slices.Index(got[n+1:], "sudo systemctl restart nginx") >= 0 {
+		t.Errorf("a library entry already in history was shown twice: %v", got)
+	}
+
+	results, err = s.Search(ctx, "make a script executable", 10, DefaultParams, store.Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) < 2 || results[0].Library || !results[1].Library || results[1].Text != "chmod +x path/to/file" || results[1].Cursor != 9 {
+		t.Errorf("with no word match, history and library must alternate: %+v", results)
+	}
+
+	results, err = s.Search(ctx, "make a script executable", 10, DefaultParams, store.Filter{Failed: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range results {
+		if r.Library {
+			t.Errorf("a filter must show history only: %v", texts(results))
+		}
 	}
 }
 

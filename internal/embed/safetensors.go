@@ -81,13 +81,13 @@ func readSafetensors(b []byte) (map[string]tensor, error) {
 var f16Table = sync.OnceValue(func() *[1 << 16]float32 {
 	var t [1 << 16]float32
 	for h := range t {
-		t[h] = f16ToF32(uint16(h))
+		t[h] = F16ToF32(uint16(h))
 	}
 	return &t
 })
 
-// f16ToF32 converts an IEEE 754 half-precision value to float32.
-func f16ToF32(h uint16) float32 {
+// F16ToF32 converts an IEEE 754 half-precision value to float32.
+func F16ToF32(h uint16) float32 {
 	sign := uint32(h>>15) << 31
 	exp := uint32(h>>10) & 0x1f
 	mant := uint32(h) & 0x3ff
