@@ -2,8 +2,8 @@
 
 # loxx
 
-Find any command you ran before, even if you only remember what it did. Or
-one you never ran: loxx also knows thousands of common commands.
+Find any command you ran before, even if you only remember what it did, or
+the closest command for what you want to do, even if you have never run it.
 
 Press Ctrl-Alt-G, then describe what you want, like "restart the web server" or
 "undo my last commit". You can also type part of the command, like
@@ -49,8 +49,9 @@ loxx ❯ undo my last commit
 
 Typing `loxx` and pressing Enter opens the same list.
 
-The list also suggests common commands you have never run, marked `suggested`, for
-programs installed on your computer:
+The list also suggests the closest commands for what you want to do, even if
+you have never run them, marked `suggested`, for programs installed on your
+computer:
 
 ```
 loxx ❯ delete a branch on the remote
