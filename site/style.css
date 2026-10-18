@@ -103,6 +103,7 @@ img { max-width: 100%; height: auto; }
 .term .ok { color: var(--ok); }
 .term .bad { color: var(--bad); }
 .term .sug { color: var(--sug); }
+.transcript .sug, .sug-t { color: var(--sug); }
 .term .sel { font-weight: 700; }
 .term .cursor { background: var(--term-fg); color: var(--term-bg); }
 .term .red { color: #f0b45a; }

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>loxx: search your bash and zsh history by meaning</title>
-<meta name="description" content="loxx remembers every command you run in bash and zsh. Find one by a word in it or by what it did. Offline, open source, and it hides your secrets.">
+<meta name="description" content="loxx remembers every command you run in bash and zsh. Find one by what it did, or get the closest command for what you want to do. Offline, open source, hides secrets.">
 <link rel="canonical" href="https://loxx.run/">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/style.css">
@@ -57,7 +57,7 @@
   <div class="wrap hero-in">
     <div class="pitch">
       <h1>Search your shell history by meaning</h1>
-      <p class="lede">loxx remembers every command you run in bash and zsh. Months later, type what it did right at your prompt, like “undo my last commit”, and matching commands appear. Pick one and it's in your prompt, ready to edit.</p>
+      <p class="lede">loxx remembers every command you run in bash and zsh. Months later, press <kbd>Ctrl-Alt-G</kbd> and describe what it did, like “undo my last commit”. Pick one and it's in your prompt, ready to edit. loxx also suggests the closest command for what you want to do, even if you have never run it.</p>
       <div class="cmd"><pre>curl -fsSL https://loxx.run/install | sh</pre></div>
       <p class="meta"><span>Linux and macOS</span><span>bash and zsh</span><span>works offline</span><span>MIT</span></p>
     </div>
@@ -179,10 +179,11 @@
              aria-label="Typing loxx, then “undo my last commit”, finds git reset --soft HEAD~1 and puts it in the prompt">
       </video>
       (or <img src="/demo.gif" width="1280" height="720" alt="…the same description…">) -->
-      <div class="transcript" role="img" aria-label="Typing loxx, then “undo my last commit”: the first result is git reset --soft HEAD~1, which goes into the prompt, not run.">
+      <div class="transcript" role="img" aria-label="Typing loxx, then “undo my last commit”: the first result is git reset --soft HEAD~1, which goes into the prompt, not run. A suggested command, git reset HEAD~, is listed too.">
 <pre><span class="dim">~/code/shop $</span> loxx
 <b>loxx ❯</b> undo my last commit
 <b>▸ git reset --soft HEAD~1</b>  <span class="dim">~/code/shop · 3 days ago · 2×</span> <span class="ok">✓</span>
+  git reset HEAD~  <span class="sug">suggested</span><span class="dim"> · Undo the last commit, keeping its changes</span>
   git revert HEAD  <span class="dim">~/code/api · 2 weeks ago</span> <span class="ok">✓</span>
   git commit --amend --no-edit  <span class="dim">~/code/shop · 1 day ago · 6×</span> <span class="ok">✓</span>
 <span class="dim">filter: all (Tab) · ↑↓ · Enter use · Esc cancel</span>
@@ -190,7 +191,7 @@
 <span class="dim">~/code/shop $</span> git reset --soft HEAD~1<span class="cursor"> </span></pre>
       </div>
     </div>
-    <figcaption>The command contains none of the words you typed. loxx compares the <em>meaning</em> of your search with the meaning of every saved command, so <code>git reset --soft HEAD~1</code> comes first. Enter puts it in your prompt; it never runs by itself.</figcaption>
+    <figcaption>The command contains none of the words you typed. loxx compares the <em>meaning</em> of your search with the meaning of every saved command, so <code>git reset --soft HEAD~1</code> comes first. Rows marked <span class="sug-t">suggested</span> are the closest commands for what you want to do, even ones you have never run. Enter puts it in your prompt; it never runs by itself.</figcaption>
   </figure>
 </section>
 
@@ -209,6 +210,7 @@
       <tbody>
         <tr><th scope="row">How it matches</th><td>Exact text</td><td>Letters in order</td><td>Text (substring or fuzzy), ranked by a small neural network</td><td class="us">Words and meaning</td></tr>
         <tr><th scope="row">Finds <q>undo my last commit</q> → <code>git reset --soft HEAD~1</code></th><td><span class="no" aria-label="No">✗</span></td><td><span class="no" aria-label="No">✗</span></td><td><span class="no" aria-label="No">✗</span></td><td class="us"><span class="yes" aria-label="Yes">✓</span></td></tr>
+        <tr><th scope="row">Suggests the closest command for what you want to do, even if you have never run it</th><td><span class="no" aria-label="No">✗</span></td><td><span class="no" aria-label="No">✗</span></td><td><span class="no" aria-label="No">✗</span></td><td class="us"><span class="yes" aria-label="Yes">✓</span><br><span class="note-s">for programs you have installed</span></td></tr>
         <tr><th scope="row">Narrow to this folder or repo, or this terminal</th><td><span class="no" aria-label="No">✗</span></td><td><span class="no" aria-label="No">✗</span></td><td>Ranks this folder higher</td><td class="us"><span class="yes" aria-label="Yes">✓</span> and “failed”</td></tr>
         <tr><th scope="row">Keeps passwords and keys out of saved history</th><td><span class="no" aria-label="No">✗</span></td><td><span class="no" aria-label="No">✗</span></td><td><span class="no" aria-label="No">✗</span><br><span class="note-s">only if you skip the command</span></td><td class="us"><span class="yes" aria-label="Yes">✓</span><br><span class="note-s">replaces the secret, keeps the command</span></td></tr>
         <tr><th scope="row">Shells</th><td>bash (built in)</td><td>bash, zsh, fish</td><td>bash, zsh, PowerShell</td><td class="us">bash, zsh</td></tr>
