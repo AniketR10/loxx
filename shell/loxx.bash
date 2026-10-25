@@ -2,6 +2,12 @@
 # bash-preexec (below) provides the preexec hook bash lacks.
 
 _loxx_bin=__LOXX_BIN__
+# loxx's folder goes on PATH (last, so it never hides another command), so
+# `loxx` works in scripts too.
+case ":$PATH:" in
+  *":${_loxx_bin%/*}:"*) ;;
+  *) PATH=${PATH:+$PATH:}${_loxx_bin%/*} ;;
+esac
 
 # bash-preexec 0.7.0, vendored from https://github.com/rcaloras/bash-preexec
 __BASH_PREEXEC_LICENSE__

@@ -105,8 +105,9 @@ The block in your shell settings looks like this:
 # <<< loxx <<<
 ```
 
-`loxx uninstall` removes it and puts the file back exactly as it was. loxx
-never changes your `PATH`.
+If `~/.local/bin` isn't in your `PATH` (it usually isn't on a Mac), the hook
+adds it, at the end, so typing `loxx` works everywhere, scripts included.
+`loxx uninstall` removes the block and puts the file back exactly as it was.
 
 ## How it works
 
@@ -172,9 +173,8 @@ Use the name of the file you downloaded: `loxx-linux-amd64`, `loxx-linux-arm64`,
 - Works on Linux with bash or zsh, and on macOS with zsh. Not on Windows.
 - On a Mac, bash is not supported: the bash that comes with macOS is too old.
   zsh has been the Mac default since 2019.
-- On a Mac, `~/.local/bin` is usually not in your `PATH`. Typing `loxx` still
-  works in every new terminal, because the hook adds it. Anywhere else, use
-  `~/.local/bin/loxx`.
+- The terminal you install from doesn't have loxx yet. Open a new one, or
+  run `exec zsh` (or `exec bash`) in it.
 - Your history stays on the computer where you ran the commands.
 - When you search by meaning, loxx always shows the closest matches, even if
   none of them is a good match.

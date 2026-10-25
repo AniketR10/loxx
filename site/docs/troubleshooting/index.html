@@ -61,7 +61,7 @@
 <div class="cmd"><pre>loxx embed --pending</pre></div>
 
 <h2 id="not-found"><code>loxx: command not found</code></h2>
-<p>The installer puts loxx in <code>~/.local/bin</code> and doesn't change your <code>PATH</code>. In a new terminal, typing <code>loxx</code> works anyway, because the hook adds it. Anywhere else, such as scripts, use <code>~/.local/bin/loxx</code>, or add <code>~/.local/bin</code> to your <code>PATH</code>.</p>
+<p>The terminal you installed from doesn't have loxx yet: open a new terminal, or run <code>exec zsh</code> (or <code>exec bash</code>) in it. The installer puts loxx in <code>~/.local/bin</code>, and if that folder isn't in your <code>PATH</code> (it usually isn't on a Mac), the hook adds it, so new terminals and the scripts you run from them find <code>loxx</code>. If it's still not found, run <code>~/.local/bin/loxx setup</code> and open a new terminal.</p>
 
 <h2 id="ctrl-g"><kbd>Ctrl-Alt-G</kbd> does nothing</h2>
 <p>loxx only takes <kbd>Ctrl-Alt-G</kbd> if it still does what your shell does by default. If you've given it another job yourself, loxx leaves it alone: type <code>loxx</code> and press <kbd>Enter</kbd> instead. Terminals opened before you installed loxx don't have it yet; open a new one.</p>

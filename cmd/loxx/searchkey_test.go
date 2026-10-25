@@ -4,6 +4,8 @@ package main
 
 import (
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +20,17 @@ func (s *session) key(k string, wait time.Duration) {
 	time.Sleep(wait)
 }
 
+// waitFor waits until text is on the screen; a new binary's first start can
+// take a second or more (macOS scans it).
+func (s *session) waitFor(text string) {
+	s.t.Helper()
+	for deadline := time.Now().Add(10 * time.Second); !strings.Contains(s.out.String(), text); time.Sleep(50 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			s.t.Fatalf("%q never appeared\nscreen:\n%s", text, s.out.String())
+		}
+	}
+}
+
 const (
 	keyEsc      = "\x1b"
 	keyCtrlAltG = "\x1b\x07"
@@ -29,10 +42,13 @@ func TestSearchKey(t *testing.T) {
 	for _, sh := range shells {
 		t.Run(sh.name, func(t *testing.T) {
 			s := startShell(t, sh.name, sh.args)
-			s.typeLines(`eval "$('`+bin+`' init `+sh.name+`)"`, `loxx add 'echo picked-$((40+2))'`)
-			if !strings.Contains(s.out.String(), "loxx is on: type `loxx` or press Ctrl-Alt-G") {
-				t.Errorf("no startup message\nscreen:\n%s", s.out.String())
+			s.typeLines(`eval "$('` + bin + `' init ` + sh.name + `)"`)
+			name := "Ctrl-Alt-G"
+			if runtime.GOOS == "darwin" && sh.name == "zsh" {
+				name = "Ctrl-Option-G" // what a Mac keyboard calls it
 			}
+			s.waitFor("loxx is on: type `loxx` or press " + name)
+			s.typeLines(`loxx add 'echo picked-$((40+2))'`)
 
 			s.key("picked", 200*time.Millisecond)
 			s.key(keyCtrlAltG, 1500*time.Millisecond)
@@ -83,6 +99,26 @@ func TestSearchKeyKeepsYourBinding(t *testing.T) {
 		out, _ := exec.Command(c.shell, append(args, script)...).CombinedOutput()
 		if !strings.Contains(string(out), "beginning-of-line") {
 			t.Errorf("%s: your Ctrl-Alt-G binding was replaced\n%s", c.shell, out)
+		}
+	}
+}
+
+// TestHookPutsLoxxOnPath: with the hook, scripts find `loxx` by name (a new
+// Mac has no ~/.local/bin on PATH). Its folder is added once, last.
+func TestHookPutsLoxxOnPath(t *testing.T) {
+	bin := buildLoc(t)
+	for _, sh := range shells {
+		if _, err := exec.LookPath(sh.name); err != nil {
+			continue
+		}
+		hook := `eval "$('` + bin + `' init ` + sh.name + `)"`
+		script := `PATH=/usr/bin:/bin; ` + hook + `; ` + hook + `; sh -c 'command -v loxx'; echo "PATH=$PATH"`
+		out, _ := exec.Command(sh.name, append(sh.args, "-c", script)...).CombinedOutput()
+		if !strings.Contains(string(out), "\n"+bin+"\n") && !strings.HasPrefix(string(out), bin+"\n") {
+			t.Errorf("%s: a script started from the shell can't find loxx\n%s", sh.name, out)
+		}
+		if want := "PATH=/usr/bin:/bin:" + filepath.Dir(bin) + "\n"; !strings.Contains(string(out), want) {
+			t.Errorf("%s: want %q\n%s", sh.name, want, out)
 		}
 	}
 }
