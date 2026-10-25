@@ -19,20 +19,31 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <script src="/copy.js" defer></script>
+<script>
+document.documentElement.classList.add('js');
+if (matchMedia('(prefers-reduced-motion: no-preference)').matches && 'IntersectionObserver' in window) {
+  document.documentElement.classList.add('motion');
+  addEventListener('load', () => { if (!window.LOXX_SITE) document.documentElement.classList.remove('motion'); });
+}
+</script>
+<script src="/site.js" defer></script>
 </head>
 <body>
-<header class="top">
-  <div class="wrap">
-    <a class="brand" href="/">loxx<span>_</span></a>
-    <nav aria-label="Main">
+<a class="skip" href="#main">Skip to content</a>
+<header class="island">
+  <nav class="pill" aria-label="Main">
+    <a class="brand" href="/"><img src="/favicon.svg" alt="" width="24" height="24">loxx</a>
+    <button type="button" class="burger" aria-expanded="false" aria-controls="menu" aria-label="Open the menu"><span></span><span></span></button>
+    <div class="links" id="menu">
       <a href="/docs/" aria-current="page">Docs</a>
       <a href="/download/">Download</a>
       <a href="https://github.com/AniketR10/loxx">GitHub</a>
-    </nav>
-  </div>
+      <a class="btn sm" href="/download/">Install</a>
+    </div>
+  </nav>
 </header>
 
-<main class="wrap docs">
+<main id="main" class="wrap docs">
   <nav aria-label="Docs">
     <p class="label">Docs</p>
     <ul>
@@ -46,7 +57,7 @@
   </nav>
   <article class="page">
 <h1>Searching</h1>
-<p>Press <kbd>Ctrl-Alt-G</kbd> at your prompt to open the search list right under it. Anything already typed on the line becomes the search, so you can type <code>undo my last commit</code> first and then press <kbd>Ctrl-Alt-G</kbd>. Typing <code>loxx</code> and pressing <kbd>Enter</kbd> opens the same list.</p>
+<p>Press <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>G</kbd> at your prompt (on a Mac, <kbd>Ctrl</kbd> <kbd>Option</kbd> <kbd>G</kbd>, see <a href="/docs/troubleshooting/#ctrl-g">Troubleshooting</a>) to open the search list right under it. Anything already typed on the line becomes the search, so you can type <code>undo my last commit</code> first and then press <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>G</kbd>. Typing <code>loxx</code> and pressing <kbd>Enter</kbd> opens the same list.</p>
 <div class="term" role="img" aria-label="The loxx search list with four results and the key help line.">
 <pre><b>loxx ❯</b> undo last commit<span class="cursor"> </span>
 <span class="sel">▸ git reset --soft HEAD~1</span>  <span class="dim">~/code/shop · 3 days ago · 2×</span> <span class="ok">✓</span>
@@ -70,7 +81,7 @@
 <p>With an empty search, the list shows your most recent commands.</p>
 
 <h3 id="results">Reading a result</h3>
-<p>Each line shows the command, then the folder it ran in, when it last ran, how many times it ran (<code>14×</code>), and whether it worked: <span style="color:var(--ok)">✓</span> for success, <span style="color:var(--bad)">✗</span> for a failure. Commands loaded from your old history say “imported”. A command that spans several lines is shown on one line, with <code>↵</code> marking the line breaks.</p>
+<p>Each line shows the command, then the folder it ran in, when it last ran, how many times it ran (<code>14×</code>), and whether it worked: <span class="c-ok">✓</span> for success, <span class="c-bad">✗</span> for a failure. Commands loaded from your old history say “imported”. A command that spans several lines is shown on one line, with <code>↵</code> marking the line breaks.</p>
 
 <h3 id="filters">Filters</h3>
 <p><kbd>Tab</kbd> cycles through:</p>
@@ -85,7 +96,7 @@
 </table></div>
 
 <h3 id="suggested">Suggested commands</h3>
-<p>With the “all” filter, the list also suggests the closest commands for what you want to do, even if you have never run them, marked <span style="color:var(--sug)">suggested</span>, but only for programs installed on your computer:</p>
+<p>With the “all” filter, the list also suggests the closest commands for what you want to do, even if you have never run them, marked <span class="c-sug">suggested</span>, but only for programs installed on your computer:</p>
 <div class="term" role="img" aria-label="The search “delete a branch on the remote” lists a saved git command, then the suggestion git push remote_name -d remote_branch_name marked suggested.">
 <pre><b>loxx ❯</b> delete a branch on the remote<span class="cursor"> </span>
 <span class="sel">▸ git branch</span>  <span class="dim">~/code/shop · 2 days ago</span>
@@ -107,19 +118,21 @@
 <div class="term"><pre>tar -czvf backup.tar.gz ~/Documents
 <span class="dim">    ~ · 2 weeks ago · exit 0 · 1 run</span></pre></div>
 <p>Running the program directly as <code>~/.local/bin/loxx</code> (without the shell hook) opens the list and prints the chosen command, so you can use it in your own scripts.</p>
-    <nav class="next" aria-label="Previous and next page"><a href="/docs/">← Getting started</a><a href="/docs/commands/">Commands →</a></nav>
+    <nav class="next" aria-label="Previous and next page"><a class="back" href="/docs/"><svg class="icon" aria-hidden="true"><use href="/icons.svg#arrow-right"/></svg>Getting started</a><a href="/docs/commands/">Commands<svg class="icon" aria-hidden="true"><use href="/icons.svg#arrow-right"/></svg></a></nav>
   </article>
 </main>
 
 <footer class="foot">
-  <div class="wrap">
-    <span>loxx is free and open source (MIT).</span>
+  <div class="wrap foot-in">
+    <p><img src="/favicon.svg" alt="" width="20" height="20">loxx is free and open source.</p>
     <nav aria-label="Footer">
       <a href="/docs/">Docs</a>
       <a href="/download/">Download</a>
       <a href="https://github.com/AniketR10/loxx">GitHub</a>
       <a href="https://github.com/AniketR10/loxx/releases">Releases</a>
       <a href="https://github.com/AniketR10/loxx/blob/main/SECURITY.md">Security</a>
+      <a href="/docs/privacy/#website">Privacy</a>
+      <a href="https://github.com/AniketR10/loxx/blob/main/LICENSE">License</a>
     </nav>
   </div>
 </footer>

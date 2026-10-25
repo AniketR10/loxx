@@ -19,20 +19,31 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <script src="/copy.js" defer></script>
+<script>
+document.documentElement.classList.add('js');
+if (matchMedia('(prefers-reduced-motion: no-preference)').matches && 'IntersectionObserver' in window) {
+  document.documentElement.classList.add('motion');
+  addEventListener('load', () => { if (!window.LOXX_SITE) document.documentElement.classList.remove('motion'); });
+}
+</script>
+<script src="/site.js" defer></script>
 </head>
 <body>
-<header class="top">
-  <div class="wrap">
-    <a class="brand" href="/">loxx<span>_</span></a>
-    <nav aria-label="Main">
+<a class="skip" href="#main">Skip to content</a>
+<header class="island">
+  <nav class="pill" aria-label="Main">
+    <a class="brand" href="/"><img src="/favicon.svg" alt="" width="24" height="24">loxx</a>
+    <button type="button" class="burger" aria-expanded="false" aria-controls="menu" aria-label="Open the menu"><span></span><span></span></button>
+    <div class="links" id="menu">
       <a href="/docs/" aria-current="page">Docs</a>
       <a href="/download/">Download</a>
       <a href="https://github.com/AniketR10/loxx">GitHub</a>
-    </nav>
-  </div>
+      <a class="btn sm" href="/download/">Install</a>
+    </div>
+  </nav>
 </header>
 
-<main class="wrap docs">
+<main id="main" class="wrap docs">
   <nav aria-label="Docs">
     <p class="label">Docs</p>
     <ul>
@@ -63,9 +74,9 @@
 <h2 id="not-found"><code>loxx: command not found</code></h2>
 <p>The terminal you installed from doesn't have loxx yet: open a new terminal, or run <code>exec zsh</code> (or <code>exec bash</code>) in it. The installer puts loxx in <code>~/.local/bin</code>, and if that folder isn't in your <code>PATH</code> (it usually isn't on a Mac), the hook adds it, so new terminals and the scripts you run from them find <code>loxx</code>. If it's still not found, run <code>~/.local/bin/loxx setup</code> and open a new terminal.</p>
 
-<h2 id="ctrl-g"><kbd>Ctrl-Alt-G</kbd> does nothing</h2>
-<p>loxx only takes <kbd>Ctrl-Alt-G</kbd> if it still does what your shell does by default. If you've given it another job yourself, loxx leaves it alone: type <code>loxx</code> and press <kbd>Enter</kbd> instead. Terminals opened before you installed loxx don't have it yet; open a new one.</p>
-<p>On a Mac the key is <kbd>Ctrl-Option-G</kbd>, and the terminal must send Option as Alt. Terminal: Settings → Profiles → Keyboard → “Use Option as Meta key”. iTerm2: Settings → Profiles → Keys → Left Option key → “Esc+”.</p>
+<h2 id="ctrl-g"><kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>G</kbd> does nothing</h2>
+<p>loxx only takes <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>G</kbd> if it still does what your shell does by default. If you've given it another job yourself, loxx leaves it alone: type <code>loxx</code> and press <kbd>Enter</kbd> instead. Terminals opened before you installed loxx don't have it yet; open a new one.</p>
+<p>On a Mac the key is <kbd>Ctrl</kbd> <kbd>Option</kbd> <kbd>G</kbd>, and the terminal must send Option as Alt. Terminal: Settings → Profiles → Keyboard → “Use Option as Meta key”. iTerm2: Settings → Profiles → Keys → Left Option key → “Esc+”.</p>
 
 <h2 id="settings">Settings</h2>
 <p>loxx has no settings file. These environment variables cover the rare cases:</p>
@@ -106,19 +117,21 @@
 
 <h2 id="bugs">Still stuck?</h2>
 <p><a href="https://github.com/AniketR10/loxx/issues/new?template=bug_report.md">Open an issue</a> with the output of <code>loxx status</code>. It shows counts and paths, not your commands.</p>
-    <nav class="next" aria-label="Previous and next page"><a href="/docs/how-it-works/">← How it works</a><span></span></nav>
+    <nav class="next" aria-label="Previous and next page"><a class="back" href="/docs/how-it-works/"><svg class="icon" aria-hidden="true"><use href="/icons.svg#arrow-right"/></svg>How it works</a><span></span></nav>
   </article>
 </main>
 
 <footer class="foot">
-  <div class="wrap">
-    <span>loxx is free and open source (MIT).</span>
+  <div class="wrap foot-in">
+    <p><img src="/favicon.svg" alt="" width="20" height="20">loxx is free and open source.</p>
     <nav aria-label="Footer">
       <a href="/docs/">Docs</a>
       <a href="/download/">Download</a>
       <a href="https://github.com/AniketR10/loxx">GitHub</a>
       <a href="https://github.com/AniketR10/loxx/releases">Releases</a>
       <a href="https://github.com/AniketR10/loxx/blob/main/SECURITY.md">Security</a>
+      <a href="/docs/privacy/#website">Privacy</a>
+      <a href="https://github.com/AniketR10/loxx/blob/main/LICENSE">License</a>
     </nav>
   </div>
 </footer>
