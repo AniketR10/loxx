@@ -13,15 +13,24 @@ Press Ctrl-Alt-G, then describe what you want, like "restart the web server" or
 - **Safe.** Passwords, API keys and tokens are removed before anything is saved.
 - **Automatic.** It remembers every command you run, without slowing your terminal.
 
+Website and docs: **[loxx.run](https://loxx.run)**. Try it in your browser
+first with the [Lost Commands](https://loxx.run/#play) game.
+
 ## Install
 
 You need Linux with bash or zsh, or a Mac with zsh (the Mac default). Run:
 
 ```
-curl -fsSL https://github.com/AniketR10/loxx/releases/latest/download/install.sh | sh
+curl -fsSL https://loxx.run/install | sh
 ```
 
-Then open a new terminal. That's it.
+Then open a new terminal (or run `exec zsh` in this one). That's it.
+
+The same installer, straight from GitHub:
+
+```
+curl -fsSL https://github.com/AniketR10/loxx/releases/latest/download/install.sh | sh
+```
 
 The installer checks that the download is genuine before installing, puts
 loxx in `~/.local/bin`, adds one line to your shell settings, and loads your
