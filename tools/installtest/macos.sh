@@ -34,6 +34,10 @@ echo "$found"
 echo "$found" | grep -q 'exit 0' || fail "the command was not recorded"
 "$loxx" search false | grep -q 'exit 1' || fail "the failing command's exit code was not recorded"
 
+echo "== a new terminal finds loxx by name, in scripts too (no ~/.local/bin on a Mac's PATH)"
+zsh -i -c "sh -c 'loxx version'" 2>/dev/null | grep -q '^loxx ' ||
+  fail "a new zsh can't find loxx by name"
+
 echo "== installing again"
 sh "$home/install.sh" 2>&1 | grep -v '^loxx install' || true
 [ "$(grep -c '>>> loxx >>>' ~/.zshrc)" = 1 ] || fail "installing twice added a second block"

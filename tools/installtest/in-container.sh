@@ -28,6 +28,10 @@ echo "$found"
 echo "$found" | grep -q 'exit 0' || fail "the command was not recorded"
 ~/.local/bin/loxx search false | grep -q 'exit 1' || fail "the failing command's exit code was not recorded"
 
+echo "== a new terminal finds loxx by name, in scripts too"
+bash -i -c "sh -c 'loxx version'" 2>/dev/null | grep -q '^loxx ' ||
+  fail "a new bash can't find loxx by name"
+
 echo "== installing again"
 sh /tmp/install.sh 2>&1 | grep -v '^loxx install' || true
 [ "$(grep -c '>>> loxx >>>' ~/.bashrc)" = 1 ] || fail "installing twice added a second block"

@@ -21,7 +21,9 @@ func TestLocFunction(t *testing.T) {
 			s := startShell(t, sh.name, sh.args)
 			use := "\r" // the prompt already holds the command (zsh: print -z; bash: loxx's Enter)
 			enter := func(line string) { s.key(line+"\r", 300*time.Millisecond) }
-			s.typeLines(`eval "$('`+bin+`' init `+sh.name+`)"`, `loxx add 'echo picked-$((40+2))'`)
+			s.typeLines(`eval "$('` + bin + `' init ` + sh.name + `)"`)
+			s.waitFor("loxx is on")
+			s.typeLines(`loxx add 'echo picked-$((40+2))'`)
 			enter("loxx")
 			s.key(ctrlC, 300*time.Millisecond) // a cancelled panel must leave nothing behind
 			enter(`echo after-cancel-$((1+1))`)

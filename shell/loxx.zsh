@@ -3,6 +3,9 @@
 zmodload zsh/datetime 2>/dev/null # $EPOCHREALTIME
 
 typeset -g _loxx_bin=__LOXX_BIN__
+# loxx's folder goes on PATH (last, so it never hides another command), so
+# `loxx` works in scripts too. A new Mac doesn't have ~/.local/bin on PATH.
+[[ :$PATH: == *:${_loxx_bin:h}:* ]] || PATH=${PATH:+$PATH:}${_loxx_bin:h}
 typeset -g _loxx_session="$$-${EPOCHREALTIME:-$EPOCHSECONDS}"
 typeset -g _loxx_cmd="" _loxx_start="" _loxx_cwd=""
 
@@ -69,5 +72,9 @@ zle -N _loxx_search
 
 # Startup line (hidden by LOXX_QUIET=1).
 if [[ ${LOXX_QUIET:-0} != 1 && -t 1 ]]; then
-  print -r -- $'\e[2m''loxx is on: type `loxx` or press Ctrl-Alt-G to search your history, e.g. "undo my last commit".'$'\e[0m'
+  () {
+    local key=Ctrl-Alt-G
+    [[ $OSTYPE == darwin* ]] && key=Ctrl-Option-G # what a Mac keyboard calls it
+    print -r -- $'\e[2m''loxx is on: type `loxx` or press '$key' to search your history, e.g. "undo my last commit".'$'\e[0m'
+  }
 fi

@@ -25,17 +25,20 @@ case $(uname -m) in
 esac
 asset=loxx-$os-$arch
 
-# A plain command, not a function, so a download started with & is the
-# downloader itself and can be stopped. curl's -D saves the response headers as
-# soon as they arrive, which tells the progress bar the size.
 if command -v curl >/dev/null 2>&1; then
-  fetch='curl -fsSL --retry 3' out=-o headers=-D
+  fetcher=curl
 elif command -v wget >/dev/null 2>&1; then
-  fetch='wget -q' out=-O headers=''
+  fetcher=wget
 else
   fail "needs curl or wget"
 fi
-download() { $fetch $out "$2" "$1"; }
+download() {
+  if [ "$fetcher" = curl ]; then
+    curl -fsSL --retry 3 -o "$2" "$1"
+  else
+    wget -q -O "$2" "$1"
+  fi
+}
 # Linux has sha256sum; macOS has shasum.
 if command -v sha256sum >/dev/null 2>&1; then
   sha256() { sha256sum "$1" | cut -d ' ' -f 1; }
@@ -47,9 +50,16 @@ fi
 
 tmp=$(mktemp -d)
 pid=''
-trap '[ -z "$pid" ] || kill "$pid" 2>/dev/null; rm -rf "$tmp"' EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
+# Stops a download still running and removes the temp files. The signal traps
+# call it too: zsh skips the EXIT trap when a trap calls exit.
+cleanup() {
+  [ -z "$pid" ] || kill "$pid" 2>/dev/null
+  pid=''
+  rm -rf "$tmp"
+}
+trap cleanup EXIT
+trap 'cleanup; exit 130' INT
+trap 'cleanup; exit 143' TERM
 
 key=Ctrl-Alt-G
 [ "$os" = darwin ] && key=Ctrl-Option-G
@@ -83,8 +93,8 @@ progress() {
     running=1
     kill -0 "$1" 2>/dev/null || running=0
     got=$(wc -c 2>/dev/null <"$2" || echo 0)
-    # The last Content-Length is the file's (earlier ones belong to redirects).
-    total=$(awk 'tolower($1) == "content-length:" { n = $2 } END { print n + 0 }' "$3" 2>/dev/null || echo 0)
+    # The file's size: the Content-Length of a 2xx response, not of a redirect.
+    total=$(awk '/^HTTP\// { ok = $2 ~ /^2/; n = 0 } ok && tolower($1) == "content-length:" { n = $2 } END { print n + 0 }' "$3" 2>/dev/null || echo 0)
     if [ "$total" -gt 0 ]; then
       pct=$((got * 100 / total))
       [ "$pct" -le 100 ] || pct=100
@@ -110,7 +120,14 @@ progress() {
 
 say "downloading $asset"
 if [ -t 2 ]; then
-  $fetch ${headers:+$headers "$tmp/headers"} $out "$tmp/$asset" "$release_url/$asset" &
+  # Started directly, not through download(), so $pid is the downloader itself
+  # and the exit trap can stop it. curl's -D saves the response headers as soon
+  # as they arrive, which tells the progress bar the size.
+  if [ "$fetcher" = curl ]; then
+    curl -fsSL --retry 3 -D "$tmp/headers" -o "$tmp/$asset" "$release_url/$asset" &
+  else
+    wget -q -O "$tmp/$asset" "$release_url/$asset" &
+  fi
   pid=$!
   progress "$pid" "$tmp/$asset" "$tmp/headers"
   if ! wait "$pid"; then
@@ -142,3 +159,7 @@ printf '%s\n' "$bin_dir/loxx" >"$state_dir/installed-binary"
 say "installed $bin_dir/loxx"
 
 "$bin_dir/loxx" setup
+# The hook only loads in new shells; this one is still the old one.
+case ${SHELL##*/} in
+  (zsh | bash) say "to use it in this terminal right away, run: exec ${SHELL##*/}" ;;
+esac
