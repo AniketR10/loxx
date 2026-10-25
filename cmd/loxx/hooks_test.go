@@ -108,7 +108,9 @@ func TestShellHooksHangup(t *testing.T) {
 	for _, sh := range shells {
 		t.Run(sh.name, func(t *testing.T) {
 			s := startShell(t, sh.name, sh.args)
-			s.typeLines(`eval "$('`+bin+`' init `+sh.name+`)"`, `echo before-hangup`, `sleep 30`)
+			s.typeLines(`eval "$('` + bin + `' init ` + sh.name + `)"`)
+			s.waitFor("loxx is on") // a hangup before the hook loads would record nothing
+			s.typeLines(`echo before-hangup`, `sleep 30`)
 			// SIGHUP directly: closing s.master is deferred while a read blocks.
 			if err := s.cmd.Process.Signal(syscall.SIGHUP); err != nil {
 				t.Fatal(err)
