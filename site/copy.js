@@ -1,25 +1,24 @@
-// Adds a Copy button to every command box. Without JavaScript the commands
-// can still be selected and copied by hand.
+// Adds a Copy button to every command box (its label can be set with
+// data-label). Without JavaScript the commands can still be selected and
+// copied by hand.
 for (const box of document.querySelectorAll('.cmd')) {
   const pre = box.querySelector('pre');
+  const label = box.dataset.label || 'Copy';
   const button = document.createElement('button');
+  const icon = (name) => `<svg class="icon" aria-hidden="true"><use href="/icons.svg#${name}"/></svg>`;
+  const show = (name, text) => { button.innerHTML = `${icon(name)}<span>${text}</span>`; };
   button.type = 'button';
   button.className = 'copy';
-  button.textContent = 'Copy';
-  button.setAttribute('aria-label', 'Copy the command');
+  show('copy', label);
   button.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(pre.textContent.trim());
-      button.textContent = 'Copied';
-      button.setAttribute('aria-label', 'Copied');
+      show('check', 'Copied');
     } catch {
-      getSelection().selectAllChildren(pre);
-      button.textContent = 'Selected';
+      getSelection().selectAllChildren(pre); // copying was blocked: select it to copy by hand
+      show('copy', 'Selected, press Ctrl C');
     }
-    setTimeout(() => {
-      button.textContent = 'Copy';
-      button.setAttribute('aria-label', 'Copy the command');
-    }, 1500);
+    setTimeout(() => show('copy', label), 1600);
   });
   box.append(button);
 }

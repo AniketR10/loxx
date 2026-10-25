@@ -19,20 +19,31 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <script src="/copy.js" defer></script>
+<script>
+document.documentElement.classList.add('js');
+if (matchMedia('(prefers-reduced-motion: no-preference)').matches && 'IntersectionObserver' in window) {
+  document.documentElement.classList.add('motion');
+  addEventListener('load', () => { if (!window.LOXX_SITE) document.documentElement.classList.remove('motion'); });
+}
+</script>
+<script src="/site.js" defer></script>
 </head>
 <body>
-<header class="top">
-  <div class="wrap">
-    <a class="brand" href="/">loxx<span>_</span></a>
-    <nav aria-label="Main">
+<a class="skip" href="#main">Skip to content</a>
+<header class="island">
+  <nav class="pill" aria-label="Main">
+    <a class="brand" href="/"><img src="/favicon.svg" alt="" width="24" height="24">loxx</a>
+    <button type="button" class="burger" aria-expanded="false" aria-controls="menu" aria-label="Open the menu"><span></span><span></span></button>
+    <div class="links" id="menu">
       <a href="/docs/" aria-current="page">Docs</a>
       <a href="/download/">Download</a>
       <a href="https://github.com/AniketR10/loxx">GitHub</a>
-    </nav>
-  </div>
+      <a class="btn sm" href="/download/">Install</a>
+    </div>
+  </nav>
 </header>
 
-<main class="wrap docs">
+<main id="main" class="wrap docs">
   <nav aria-label="Docs">
     <p class="label">Docs</p>
     <ul>
@@ -46,17 +57,17 @@
   </nav>
   <article class="page">
 <h1>How it works</h1>
-<p>loxx is one program of about 80&nbsp;MB, written in Go, with no other dependencies. Most of that size is the search model and the built-in command list.</p>
+<p>loxx is one program of about 80&nbsp;MB, written in Go, with no other dependencies. Most of that size is the search model and the built in command list.</p>
 
 <h2 id="capture">Saving commands</h2>
-<p>The block the installer adds to your shell settings loads a small hook. After every command, the hook starts <code>loxx record</code> <em>in the background</em> with the command, its folder, exit code, start and end time. Your prompt doesn't wait for it: the measured cost is about 1–4&nbsp;ms per command.</p>
-<p>zsh has the hooks this needs built in. bash doesn't, so loxx includes <a href="https://github.com/rcaloras/bash-preexec">bash-preexec</a> (MIT). If you close a terminal while a command is still running, the command is saved as the shell exits, with its exit code unknown.</p>
+<p>The block the installer adds to your shell settings loads a small hook. After every command, the hook starts <code>loxx record</code> <strong>in the background</strong> with the command, its folder, exit code, start and end time. Your prompt doesn't wait for it: the measured cost is about 1 to 4&nbsp;ms per command.</p>
+<p>zsh has the hooks this needs built in. bash doesn't, so loxx includes <a href="https://github.com/rcaloras/bash-preexec"><code>bash-preexec</code></a> (MIT). If you close a terminal while a command is still running, the command is saved as the shell exits, with its exit code unknown.</p>
 
 <h2 id="storage">Storage</h2>
-<p>Commands go into one SQLite database with a full-text index. Each distinct command is stored once, with every run of it (when, where, exit code, duration) recorded separately. That's how the list can show “14×” and filter by folder or failures.</p>
+<p>Commands go into one SQLite database with a full text index. Each distinct command is stored once, with every run of it (when, where, exit code, duration) recorded separately. That's how the list can show “14×” and filter by folder or failures.</p>
 
 <h2 id="meaning">Search by meaning</h2>
-<p>loxx has <a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2">all-MiniLM-L6-v2</a> built in, a small language model (Apache-2.0) that turns text into 384 numbers capturing its meaning. Commands with a similar purpose get similar numbers, so “compress a folder” lands near <code>tar -czvf</code>.</p>
+<p>loxx has <a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2"><code>all-MiniLM-L6-v2</code></a> built in, a small language model (Apache 2.0 license) that turns text into 384 numbers capturing its meaning. Commands with a similar purpose get similar numbers, so “compress a folder” lands near <code>tar -czvf</code>.</p>
 <p>The model runs inside loxx itself, written in plain Go, with no GPU, no Python and no internet. New commands are processed in the background at low priority, a few moments after you run them.</p>
 
 <h2 id="ranking">Combining the two searches</h2>
@@ -64,14 +75,14 @@
 <p>The weights were tuned and measured on a real shell history, with questions like “undo the last commit, keep the changes” and fragments like <code>port-forw</code>.</p>
 
 <h2 id="library">Suggested commands</h2>
-<p>loxx also carries about 29,000 example commands from <a href="https://github.com/tldr-pages/tldr">tldr-pages</a> (by the tldr-pages team and contributors, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>), with their meanings worked out ahead of time. loxx shows placeholders like <code>{{path/to/file}}</code> as plain words and drops memory hints like “e[x]tract” from the descriptions. A search compares your words with each example's tool, description and page summary, and keeps only programs found on your <code>PATH</code>.</p>
+<p>loxx also carries about 29,000 example commands from <a href="https://github.com/tldr-pages/tldr">tldr pages</a> (by the tldr pages team and contributors, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>), with their meanings worked out ahead of time. loxx shows placeholders like <code>{{path/to/file}}</code> as plain words and drops memory hints like “e[x]tract” from the descriptions. A search compares your words with each example's tool, description and page summary, and keeps only programs found on your <code>PATH</code>.</p>
 <p>Your own commands that contain the words you typed come first. After them, your commands and suggestions take turns, at most five suggestions per search. Filters other than “all” show your history only.</p>
 
 <h2 id="speed">Speed</h2>
 <div class="table"><table>
   <thead><tr><th>What</th><th>Measured</th></tr></thead>
   <tbody>
-    <tr><td>Added to each command</td><td>about 1–4&nbsp;ms</td></tr>
+    <tr><td>Added to each command</td><td>about 1 to 4&nbsp;ms</td></tr>
     <tr><td>Search list appears</td><td>about 30&nbsp;ms</td></tr>
     <tr><td>Keyword results, 100,000 commands</td><td>under 50&nbsp;ms</td></tr>
     <tr><td>Meaning results, 10,000 commands</td><td>about 0.2&nbsp;s</td></tr>
@@ -79,20 +90,22 @@
 </table></div>
 
 <h2 id="open">Open source</h2>
-<p>loxx is MIT-licensed. The code, the reasons behind each design choice, and how the model was picked are all on <a href="https://github.com/AniketR10/loxx">GitHub</a>.</p>
-    <nav class="next" aria-label="Previous and next page"><a href="/docs/privacy/">← Privacy and secrets</a><a href="/docs/troubleshooting/">Troubleshooting and FAQ →</a></nav>
+<p>loxx is open source under the MIT license. The code, the reasons behind each design choice, and how the model was picked are all on <a href="https://github.com/AniketR10/loxx">GitHub</a>.</p>
+    <nav class="next" aria-label="Previous and next page"><a class="back" href="/docs/privacy/"><svg class="icon" aria-hidden="true"><use href="/icons.svg#arrow-right"/></svg>Privacy and secrets</a><a href="/docs/troubleshooting/">Troubleshooting and FAQ<svg class="icon" aria-hidden="true"><use href="/icons.svg#arrow-right"/></svg></a></nav>
   </article>
 </main>
 
 <footer class="foot">
-  <div class="wrap">
-    <span>loxx is free and open source (MIT).</span>
+  <div class="wrap foot-in">
+    <p><img src="/favicon.svg" alt="" width="20" height="20">loxx is free and open source.</p>
     <nav aria-label="Footer">
       <a href="/docs/">Docs</a>
       <a href="/download/">Download</a>
       <a href="https://github.com/AniketR10/loxx">GitHub</a>
       <a href="https://github.com/AniketR10/loxx/releases">Releases</a>
       <a href="https://github.com/AniketR10/loxx/blob/main/SECURITY.md">Security</a>
+      <a href="/docs/privacy/#website">Privacy</a>
+      <a href="https://github.com/AniketR10/loxx/blob/main/LICENSE">License</a>
     </nav>
   </div>
 </footer>

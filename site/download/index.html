@@ -19,29 +19,40 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <script src="/copy.js" defer></script>
+<script>
+document.documentElement.classList.add('js');
+if (matchMedia('(prefers-reduced-motion: no-preference)').matches && 'IntersectionObserver' in window) {
+  document.documentElement.classList.add('motion');
+  addEventListener('load', () => { if (!window.LOXX_SITE) document.documentElement.classList.remove('motion'); });
+}
+</script>
+<script src="/site.js" defer></script>
 </head>
 <body>
-<header class="top">
-  <div class="wrap">
-    <a class="brand" href="/">loxx<span>_</span></a>
-    <nav aria-label="Main">
+<a class="skip" href="#main">Skip to content</a>
+<header class="island">
+  <nav class="pill" aria-label="Main">
+    <a class="brand" href="/"><img src="/favicon.svg" alt="" width="24" height="24">loxx</a>
+    <button type="button" class="burger" aria-expanded="false" aria-controls="menu" aria-label="Open the menu"><span></span><span></span></button>
+    <div class="links" id="menu">
       <a href="/docs/">Docs</a>
       <a href="/download/" aria-current="page">Download</a>
       <a href="https://github.com/AniketR10/loxx">GitHub</a>
-    </nav>
-  </div>
+      <a class="btn sm" href="/download/">Install</a>
+    </div>
+  </nav>
 </header>
 
-<main class="wrap page" style="padding-block: 48px 0">
+<main id="main" class="wrap page plainpage">
   <h1>Download loxx</h1>
   <p class="lede">One command installs loxx for your system. It needs no <code>sudo</code>.</p>
 
   <div class="cmd"><pre>curl -fsSL https://loxx.run/install | sh</pre></div>
-  <p>Then open a new terminal and press <kbd>Ctrl-Alt-G</kbd>. The installer:</p>
+  <p>Then open a new terminal (or run <code>exec zsh</code> in this one) and press <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>G</kbd>, or <kbd>Ctrl</kbd> <kbd>Option</kbd> <kbd>G</kbd> on a Mac. The installer:</p>
   <ul>
-    <li>downloads the program for your system and checks its SHA-256 checksum,</li>
+    <li>downloads the program for your system and checks its checksum,</li>
     <li>puts it in <code>~/.local/bin/loxx</code>,</li>
-    <li>adds one marked block to <code>~/.bashrc</code> and/or <code>~/.zshrc</code>,</li>
+    <li>adds one marked block to <code>~/.bashrc</code> and/or <code>~/.zshrc</code>, which also puts <code>~/.local/bin</code> on your <code>PATH</code> if it isn't there,</li>
     <li>loads your existing shell history once.</li>
   </ul>
   <p>Prefer to get the installer from GitHub directly? This does the same:</p>
@@ -51,7 +62,7 @@
   <div class="table"><table>
     <thead><tr><th>System</th><th>Shells</th><th>Chips</th></tr></thead>
     <tbody>
-      <tr><td>Linux</td><td>bash 4.4+ or zsh 5.1+</td><td>x86-64 (amd64), ARM64</td></tr>
+      <tr><td>Linux</td><td>bash 4.4+ or zsh 5.1+</td><td>Intel or AMD (amd64), ARM (arm64)</td></tr>
       <tr><td>macOS 12 or newer</td><td>zsh (the Mac default)</td><td>Apple chip, Intel</td></tr>
     </tbody>
   </table></div>
@@ -62,14 +73,14 @@
   <div class="table"><table>
     <thead><tr><th>System</th><th>File</th></tr></thead>
     <tbody>
-      <tr><td>Linux, x86-64</td><td><a href="https://github.com/AniketR10/loxx/releases/latest/download/loxx-linux-amd64">loxx-linux-amd64</a></td></tr>
+      <tr><td>Linux, Intel or AMD</td><td><a href="https://github.com/AniketR10/loxx/releases/latest/download/loxx-linux-amd64">loxx-linux-amd64</a></td></tr>
       <tr><td>Linux, ARM64</td><td><a href="https://github.com/AniketR10/loxx/releases/latest/download/loxx-linux-arm64">loxx-linux-arm64</a></td></tr>
       <tr><td>macOS, Apple chip</td><td><a href="https://github.com/AniketR10/loxx/releases/latest/download/loxx-darwin-arm64">loxx-darwin-arm64</a></td></tr>
       <tr><td>macOS, Intel</td><td><a href="https://github.com/AniketR10/loxx/releases/latest/download/loxx-darwin-amd64">loxx-darwin-amd64</a></td></tr>
       <tr><td>Checksums</td><td><a href="https://github.com/AniketR10/loxx/releases/latest/download/checksums.txt">checksums.txt</a></td></tr>
     </tbody>
   </table></div>
-  <p>Then install it and add the hook to your shell (Linux x86-64 shown):</p>
+  <p>Then install it and add the hook to your shell (Linux on Intel or AMD shown):</p>
   <div class="cmd"><pre>mkdir -p ~/.local/bin && install -m 755 loxx-linux-amd64 ~/.local/bin/loxx && ~/.local/bin/loxx setup</pre></div>
   <div class="note"><p>On a Mac, a file downloaded with a web browser is blocked until you allow it. Download it with <code>curl -fLO</code> instead, or run <code>xattr -d com.apple.quarantine loxx-darwin-arm64</code> first.</p></div>
 
@@ -92,18 +103,20 @@
 cd loxx
 make build
 bin/loxx setup</pre></div>
-  <p>The first build downloads the search model (about 45&nbsp;MB) and checks its checksum. <code>go install</code> doesn't work, because the model isn't stored in git.</p>
+  <p>The first build downloads the search model and the built in command list (about 90&nbsp;MB together) and checks their checksums. <code>go install</code> doesn't work, because neither is stored in git.</p>
 </main>
 
 <footer class="foot">
-  <div class="wrap">
-    <span>loxx is free and open source (MIT).</span>
+  <div class="wrap foot-in">
+    <p><img src="/favicon.svg" alt="" width="20" height="20">loxx is free and open source.</p>
     <nav aria-label="Footer">
       <a href="/docs/">Docs</a>
       <a href="/download/">Download</a>
       <a href="https://github.com/AniketR10/loxx">GitHub</a>
       <a href="https://github.com/AniketR10/loxx/releases">Releases</a>
       <a href="https://github.com/AniketR10/loxx/blob/main/SECURITY.md">Security</a>
+      <a href="/docs/privacy/#website">Privacy</a>
+      <a href="https://github.com/AniketR10/loxx/blob/main/LICENSE">License</a>
     </nav>
   </div>
 </footer>

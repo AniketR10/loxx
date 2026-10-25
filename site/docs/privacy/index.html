@@ -19,20 +19,31 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <script src="/copy.js" defer></script>
+<script>
+document.documentElement.classList.add('js');
+if (matchMedia('(prefers-reduced-motion: no-preference)').matches && 'IntersectionObserver' in window) {
+  document.documentElement.classList.add('motion');
+  addEventListener('load', () => { if (!window.LOXX_SITE) document.documentElement.classList.remove('motion'); });
+}
+</script>
+<script src="/site.js" defer></script>
 </head>
 <body>
-<header class="top">
-  <div class="wrap">
-    <a class="brand" href="/">loxx<span>_</span></a>
-    <nav aria-label="Main">
+<a class="skip" href="#main">Skip to content</a>
+<header class="island">
+  <nav class="pill" aria-label="Main">
+    <a class="brand" href="/"><img src="/favicon.svg" alt="" width="24" height="24">loxx</a>
+    <button type="button" class="burger" aria-expanded="false" aria-controls="menu" aria-label="Open the menu"><span></span><span></span></button>
+    <div class="links" id="menu">
       <a href="/docs/" aria-current="page">Docs</a>
       <a href="/download/">Download</a>
       <a href="https://github.com/AniketR10/loxx">GitHub</a>
-    </nav>
-  </div>
+      <a class="btn sm" href="/download/">Install</a>
+    </div>
+  </nav>
 </header>
 
-<main class="wrap docs">
+<main id="main" class="wrap docs">
   <nav aria-label="Docs">
     <p class="label">Docs</p>
     <ul>
@@ -63,13 +74,13 @@ curl -H "Authorization: Bearer <span class="red">&lt;REDACTED:auth-header&gt;</s
 <p>It recognizes:</p>
 <ul>
   <li><strong>Known tokens:</strong> GitHub, GitLab, AWS, Google, OpenAI, Anthropic, Hugging Face, Slack, Stripe, SendGrid, DigitalOcean, npm and PyPI keys, JWTs, and private key blocks.</li>
-  <li><strong>Secrets by position:</strong> passwords in flags like <code>-p</code> and <code>--password</code>, in URLs (<code>user:pass@host</code>), in <code>Authorization</code>, API-key and cookie headers, in query strings and JSON, and values of variables named like <code>*_TOKEN</code>, <code>*_SECRET</code> or <code>*_PASSWORD</code>.</li>
-  <li><strong>Random-looking strings</strong> long enough to be a key, even without a telling name.</li>
+  <li><strong>Secrets by position:</strong> passwords in flags like <code>-p</code> and <code>--password</code>, in URLs (<code>user:pass@host</code>), in <code>Authorization</code>, API key and cookie headers, in query strings and JSON, and values of variables named like <code>*_TOKEN</code>, <code>*_SECRET</code> or <code>*_PASSWORD</code>.</li>
+  <li><strong>Strings that look random</strong> long enough to be a key, even without a telling name.</li>
 </ul>
 <p>The same happens to history loaded from your old <code>~/.bash_history</code> and <code>~/.zsh_history</code>. <code>loxx status</code> shows how many secrets were removed.</p>
 
 <h2 id="limits">What loxx can't catch</h2>
-<p>loxx only removes secrets it recognizes. A short, ordinary-looking password typed as a plain argument may not look like a secret. For those:</p>
+<p>loxx only removes secrets it recognizes. A short, ordinary password typed as a plain argument may not look like a secret. For those:</p>
 <ul>
   <li><strong>Start the command with a space.</strong> loxx won't save it. Your shell's own history skips it too if it's set to (bash: <code>HISTCONTROL=ignorespace</code>, zsh: <code>setopt HIST_IGNORE_SPACE</code>).</li>
   <li><strong>Delete it afterwards:</strong> <code>loxx forget --last</code>, or <code>loxx forget --match 'part of it'</code>.</li>
@@ -80,20 +91,25 @@ curl -H "Authorization: Bearer <span class="red">&lt;REDACTED:auth-header&gt;</s
 <p><code>loxx forget</code> deletes the command, every run of it, and its search data, then wipes the freed space in the database files. A plain database delete would leave the text readable on disk for a while.</p>
 
 <h2 id="report">Found a secret loxx missed?</h2>
-<p>Please report it privately, not in a public issue, as described in the <a href="https://github.com/AniketR10/loxx/blob/main/SECURITY.md">security policy</a>. Never send the real secret: describe its shape with a made-up one.</p>
-    <nav class="next" aria-label="Previous and next page"><a href="/docs/commands/">← Commands</a><a href="/docs/how-it-works/">How it works →</a></nav>
+<p>Please report it privately, not in a public issue, as described in the <a href="https://github.com/AniketR10/loxx/blob/main/SECURITY.md">security policy</a>. Never send the real secret: describe its shape with an invented one.</p>
+<h2 id="website">This website</h2>
+<p>loxx.run sets no cookies, has no analytics and loads nothing from other websites: even the fonts are served from here. The Lost commands game keeps today's result in your own browser, and nowhere else.</p>
+<p>The site is hosted on GitHub Pages, so GitHub may log your IP address when you visit, as described in <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>.</p>
+    <nav class="next" aria-label="Previous and next page"><a class="back" href="/docs/commands/"><svg class="icon" aria-hidden="true"><use href="/icons.svg#arrow-right"/></svg>Commands</a><a href="/docs/how-it-works/">How it works<svg class="icon" aria-hidden="true"><use href="/icons.svg#arrow-right"/></svg></a></nav>
   </article>
 </main>
 
 <footer class="foot">
-  <div class="wrap">
-    <span>loxx is free and open source (MIT).</span>
+  <div class="wrap foot-in">
+    <p><img src="/favicon.svg" alt="" width="20" height="20">loxx is free and open source.</p>
     <nav aria-label="Footer">
       <a href="/docs/">Docs</a>
       <a href="/download/">Download</a>
       <a href="https://github.com/AniketR10/loxx">GitHub</a>
       <a href="https://github.com/AniketR10/loxx/releases">Releases</a>
       <a href="https://github.com/AniketR10/loxx/blob/main/SECURITY.md">Security</a>
+      <a href="/docs/privacy/#website">Privacy</a>
+      <a href="https://github.com/AniketR10/loxx/blob/main/LICENSE">License</a>
     </nav>
   </div>
 </footer>

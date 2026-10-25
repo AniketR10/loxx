@@ -19,20 +19,31 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <script src="/copy.js" defer></script>
+<script>
+document.documentElement.classList.add('js');
+if (matchMedia('(prefers-reduced-motion: no-preference)').matches && 'IntersectionObserver' in window) {
+  document.documentElement.classList.add('motion');
+  addEventListener('load', () => { if (!window.LOXX_SITE) document.documentElement.classList.remove('motion'); });
+}
+</script>
+<script src="/site.js" defer></script>
 </head>
 <body>
-<header class="top">
-  <div class="wrap">
-    <a class="brand" href="/">loxx<span>_</span></a>
-    <nav aria-label="Main">
+<a class="skip" href="#main">Skip to content</a>
+<header class="island">
+  <nav class="pill" aria-label="Main">
+    <a class="brand" href="/"><img src="/favicon.svg" alt="" width="24" height="24">loxx</a>
+    <button type="button" class="burger" aria-expanded="false" aria-controls="menu" aria-label="Open the menu"><span></span><span></span></button>
+    <div class="links" id="menu">
       <a href="/docs/" aria-current="page">Docs</a>
       <a href="/download/">Download</a>
       <a href="https://github.com/AniketR10/loxx">GitHub</a>
-    </nav>
-  </div>
+      <a class="btn sm" href="/download/">Install</a>
+    </div>
+  </nav>
 </header>
 
-<main class="wrap docs">
+<main id="main" class="wrap docs">
   <nav aria-label="Docs">
     <p class="label">Docs</p>
     <ul>
@@ -53,16 +64,16 @@
 <p>It works on Linux with bash or zsh, and on macOS with zsh. See <a href="/download/">Download</a> for other ways to install.</p>
 
 <h2 id="new-terminal">2. Open a new terminal</h2>
-<p>loxx starts saving commands in terminals opened <em>after</em> the install. Terminals that were already open don't have it yet.</p>
+<p>loxx starts saving commands in terminals opened <strong>after</strong> the install. Terminals that were already open don't have it yet.</p>
 <p>Your existing shell history (<code>~/.bash_history</code>, <code>~/.zsh_history</code>) was loaded during the install, so you can search old commands right away. Imported commands show “imported” instead of a time, because shell history files usually don't record when a command ran.</p>
 
 <h2 id="search">3. Search</h2>
-<p>Every new terminal says <code>loxx is on</code>. Just type at your prompt, either</p>
+<p>Every new terminal says <code>loxx is on</code>. Press <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>G</kbd> at your prompt (on a Mac, <kbd>Ctrl</kbd> <kbd>Option</kbd> <kbd>G</kbd>) and type either</p>
 <ul>
   <li>part of the command: <code>port-forward</code>, <code>rsync</code>, a file name</li>
   <li>or what it did: “undo my last commit”, “restart the web server”, “find big files”</li>
 </ul>
-<p>Press <kbd>Ctrl-Alt-G</kbd> at your prompt to open the search list. Describe what you want, pick a command, and <kbd>Enter</kbd> puts it in your prompt. loxx never runs a command for you. More in <a href="/docs/usage/">Searching</a>.</p>
+<p>Pick a command and <kbd>Enter</kbd> puts it in your prompt. loxx never runs a command for you. Typing <code>loxx</code> and pressing <kbd>Enter</kbd> opens the same list. More in <a href="/docs/usage/">Searching</a>.</p>
 
 <h2 id="check">4. Check it's working</h2>
 <div class="cmd"><pre>loxx status</pre></div>
@@ -72,19 +83,21 @@
 <p>Start a command with a space and loxx won't save it. To delete the command you just ran:</p>
 <div class="cmd"><pre>loxx forget --last</pre></div>
 <p>See <a href="/docs/privacy/">Privacy and secrets</a> for what loxx removes on its own.</p>
-    <nav class="next" aria-label="Previous and next page"><span></span><a href="/docs/usage/">Searching →</a></nav>
+    <nav class="next" aria-label="Previous and next page"><span></span><a href="/docs/usage/">Searching<svg class="icon" aria-hidden="true"><use href="/icons.svg#arrow-right"/></svg></a></nav>
   </article>
 </main>
 
 <footer class="foot">
-  <div class="wrap">
-    <span>loxx is free and open source (MIT).</span>
+  <div class="wrap foot-in">
+    <p><img src="/favicon.svg" alt="" width="20" height="20">loxx is free and open source.</p>
     <nav aria-label="Footer">
       <a href="/docs/">Docs</a>
       <a href="/download/">Download</a>
       <a href="https://github.com/AniketR10/loxx">GitHub</a>
       <a href="https://github.com/AniketR10/loxx/releases">Releases</a>
       <a href="https://github.com/AniketR10/loxx/blob/main/SECURITY.md">Security</a>
+      <a href="/docs/privacy/#website">Privacy</a>
+      <a href="https://github.com/AniketR10/loxx/blob/main/LICENSE">License</a>
     </nav>
   </div>
 </footer>

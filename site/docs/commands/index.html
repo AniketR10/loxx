@@ -19,20 +19,31 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <script src="/copy.js" defer></script>
+<script>
+document.documentElement.classList.add('js');
+if (matchMedia('(prefers-reduced-motion: no-preference)').matches && 'IntersectionObserver' in window) {
+  document.documentElement.classList.add('motion');
+  addEventListener('load', () => { if (!window.LOXX_SITE) document.documentElement.classList.remove('motion'); });
+}
+</script>
+<script src="/site.js" defer></script>
 </head>
 <body>
-<header class="top">
-  <div class="wrap">
-    <a class="brand" href="/">loxx<span>_</span></a>
-    <nav aria-label="Main">
+<a class="skip" href="#main">Skip to content</a>
+<header class="island">
+  <nav class="pill" aria-label="Main">
+    <a class="brand" href="/"><img src="/favicon.svg" alt="" width="24" height="24">loxx</a>
+    <button type="button" class="burger" aria-expanded="false" aria-controls="menu" aria-label="Open the menu"><span></span><span></span></button>
+    <div class="links" id="menu">
       <a href="/docs/" aria-current="page">Docs</a>
       <a href="/download/">Download</a>
       <a href="https://github.com/AniketR10/loxx">GitHub</a>
-    </nav>
-  </div>
+      <a class="btn sm" href="/download/">Install</a>
+    </div>
+  </nav>
 </header>
 
-<main class="wrap docs">
+<main id="main" class="wrap docs">
   <nav aria-label="Docs">
     <p class="label">Docs</p>
     <ul>
@@ -46,7 +57,7 @@
   </nav>
   <article class="page">
 <h1>Commands</h1>
-<p><kbd>Ctrl-Alt-G</kbd> or plain <code>loxx</code> opens the search list. Everything else is <code>loxx &lt;command&gt;</code>. Add <code>-h</code> to any command for its options.</p>
+<p><kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>G</kbd> or plain <code>loxx</code> opens the search list. Everything else is <code>loxx &lt;command&gt;</code>. Add <code>-h</code> to any command for its options.</p>
 
 <h2 id="search"><code>loxx search</code></h2>
 <p>Finds commands by meaning and by keyword and prints them. All arguments together form the query.</p>
@@ -61,7 +72,7 @@
 <div class="cmd"><pre>loxx forget (--match TEXT | --last) [--yes]</pre></div>
 <div class="table"><table><tbody>
   <tr><td><code>--last</code></td><td>forget the most recently saved command</td></tr>
-  <tr><td><code>--match TEXT</code></td><td>forget every command containing TEXT (case-sensitive)</td></tr>
+  <tr><td><code>--match TEXT</code></td><td>forget every command containing TEXT (upper and lower case must match)</td></tr>
   <tr><td><code>--yes</code></td><td>don't ask for confirmation</td></tr>
 </tbody></table></div>
 
@@ -103,19 +114,21 @@
   <tr><td><code>loxx record</code></td><td>saves one finished command, in the background</td></tr>
   <tr><td><code>loxx panel</code></td><td>opens the search list (the same as plain <code>loxx</code>); <code>--query TEXT</code> starts with TEXT typed in</td></tr>
 </tbody></table></div>
-    <nav class="next" aria-label="Previous and next page"><a href="/docs/usage/">← Searching</a><a href="/docs/privacy/">Privacy and secrets →</a></nav>
+    <nav class="next" aria-label="Previous and next page"><a class="back" href="/docs/usage/"><svg class="icon" aria-hidden="true"><use href="/icons.svg#arrow-right"/></svg>Searching</a><a href="/docs/privacy/">Privacy and secrets<svg class="icon" aria-hidden="true"><use href="/icons.svg#arrow-right"/></svg></a></nav>
   </article>
 </main>
 
 <footer class="foot">
-  <div class="wrap">
-    <span>loxx is free and open source (MIT).</span>
+  <div class="wrap foot-in">
+    <p><img src="/favicon.svg" alt="" width="20" height="20">loxx is free and open source.</p>
     <nav aria-label="Footer">
       <a href="/docs/">Docs</a>
       <a href="/download/">Download</a>
       <a href="https://github.com/AniketR10/loxx">GitHub</a>
       <a href="https://github.com/AniketR10/loxx/releases">Releases</a>
       <a href="https://github.com/AniketR10/loxx/blob/main/SECURITY.md">Security</a>
+      <a href="/docs/privacy/#website">Privacy</a>
+      <a href="https://github.com/AniketR10/loxx/blob/main/LICENSE">License</a>
     </nav>
   </div>
 </footer>

@@ -15,8 +15,9 @@ make test    # runs all tests, including real bash and zsh sessions
 make lint    # checks the code for common mistakes
 ```
 
-The first build downloads the search model (about 45 MB) and checks it is the
-right file. The model is not stored in git.
+The first build downloads the search model and the built-in command list
+(about 90 MB together) and checks they are the right files. Neither is stored
+in git.
 
 More checks, if you need them:
 
