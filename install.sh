@@ -7,9 +7,18 @@ release_url=${LOXX_RELEASE_URL:-https://github.com/AniketR10/loxx/releases/lates
 bin_dir=${LOXX_BIN_DIR:-$HOME/.local/bin}
 state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/loxx
 
-say() { printf 'loxx install: %s\n' "$*" >&2; }
+# Colors, teal and pink like the rest of loxx: only on a terminal, and never
+# with NO_COLOR set.
+if [ -t 2 ] && [ -z "${NO_COLOR+x}" ] && [ "${TERM:-dumb}" != dumb ]; then
+  teal=$(printf '\033[38;5;73m') pink=$(printf '\033[38;5;168m') red=$(printf '\033[38;5;167m')
+  gray=$(printf '\033[38;5;240m') bold=$(printf '\033[1m') dim=$(printf '\033[2m') off=$(printf '\033[0m')
+else
+  teal='' pink='' red='' gray='' bold='' dim='' off=''
+fi
+
+say() { printf '%s %s\n' "$bold${teal}loxx install:$off" "$*" >&2; }
 fail() {
-  say "$*"
+  printf '%s %s\n' "$bold${red}loxx install:$off" "$*" >&2
   exit 1
 }
 
@@ -101,14 +110,15 @@ progress() {
     if [ "$total" -gt 0 ]; then
       pct=$((got * 100 / total))
       [ "$pct" -le 100 ] || pct=100
-      bar='' i=0
+      done_part='' left_part='' i=0
       while [ $i -lt 24 ]; do
-        if [ $((i * 100 / 24)) -lt "$pct" ]; then bar=$bar$full; else bar=$bar$empty; fi
+        if [ $((i * 100 / 24)) -lt "$pct" ]; then done_part=$done_part$full; else left_part=$left_part$empty; fi
         i=$((i + 1))
       done
-      line=$(printf '  [%s] %3d%%  %d/%d MB' "$bar" "$pct" $((got / 1000000)) $((total / 1000000)))
+      line=$(printf '  [%s] %s  %s' "$teal$done_part$gray$left_part$off" "$bold$(printf '%3d%%' "$pct")$off" \
+        "$dim$((got / 1000000))/$((total / 1000000)) MB$off")
     else
-      line=$(printf '  %d MB' $((got / 1000000)))
+      line=$(printf '  %s' "$dim$((got / 1000000)) MB$off")
     fi
     if [ "$got" -eq "$last" ]; then still=$((still + 1)); else last=$got still=0; fi
     if [ "$still" -ge 50 ]; then
@@ -117,6 +127,11 @@ progress() {
       text=$(printf '%s\n' "$quips" | sed -n "$((quip + 1))p")
     fi
     text=$(printf '%s\n' "$text" | cut -c "1-$((cols - 3))")
+    # Tips get a teal "tip:", everything else is pink.
+    case $text in
+      (tip:*) text="$bold${teal}tip:$off${text#tip:}" ;;
+      (?*) text="$pink$text$off" ;;
+    esac
     [ "$running" = 1 ] || text=''
     # Up to the bar line, redraw both lines, back to the start of the quip line.
     printf '\033[1A\r%s\033[K\n  %s\033[K\r' "$line" "$text" >&2
@@ -170,5 +185,5 @@ say "installed $bin_dir/loxx"
 "$bin_dir/loxx" setup
 # The hook only loads in new shells; this one is still the old one.
 case ${SHELL##*/} in
-  (zsh | bash) say "to use it in this terminal right away, run: exec ${SHELL##*/}" ;;
+  (zsh | bash) say "to use it in this terminal right away, run: $bold${teal}exec ${SHELL##*/}$off" ;;
 esac
