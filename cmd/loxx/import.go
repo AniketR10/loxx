@@ -94,7 +94,7 @@ func runImport(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "loxx import:", err)
 			return 1
 		} else if done && !*force {
-			fmt.Fprintf(stderr, "loxx: %s was already imported (use --force to import it again)\n", format.TildePath(abs, home))
+			say(stderr, "%s was already imported (use --force to import it again)\n", format.TildePath(abs, home))
 			continue
 		}
 		f, err := os.Open(abs)
@@ -147,7 +147,7 @@ func runImport(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		imported += len(execs)
-		fmt.Fprintf(stderr, "loxx: imported %d command(s) from %s (%d secret(s) redacted, %d skipped)\n",
+		sayDone(stderr, "imported %d command(s) from %s (%d secret(s) redacted, %d skipped)\n",
 			len(execs), format.TildePath(abs, home), redactions, skipped)
 	}
 	if imported > 0 {

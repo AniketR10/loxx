@@ -46,7 +46,7 @@ func runPanel(args []string, stdout, stderr io.Writer) int {
 	// chosen command, even when a shell function captures it.
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	if err != nil {
-		fmt.Fprintln(stderr, "loxx: the search panel needs a terminal:", err)
+		say(stderr, "the search panel needs a terminal: %v\n", err)
 		return 1
 	}
 	defer tty.Close()

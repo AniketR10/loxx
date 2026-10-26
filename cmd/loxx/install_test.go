@@ -17,6 +17,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 // loginShell of a fresh account: bash on Linux, zsh on macOS.
@@ -148,7 +150,7 @@ func TestInstallScriptInTerminal(t *testing.T) {
 				if code := s.exitCode(); code != 0 {
 					t.Fatalf("install.sh exited %d\n%s", code, s.out.String())
 				}
-				out := s.out.String()
+				out := s.plain()
 				// A fast local download shows one line under the bar: a joke or a tip.
 				quip := strings.Contains(out, "tip: ") || strings.Contains(out, "...") || strings.Contains(out, "deal?")
 				if !strings.Contains(out, "] 100%") || !strings.Contains(out, " MB") || !quip || strings.Contains(out, "0/0 MB") {
@@ -157,7 +159,7 @@ func TestInstallScriptInTerminal(t *testing.T) {
 				if read(t, filepath.Join(home, ".local", "bin", "loxx")) != read(t, bin) {
 					t.Error("the installed binary differs from the release")
 				}
-				if !strings.Contains(out, "loxx: done.") {
+				if !strings.Contains(out, "done. Open a new terminal") {
 					t.Errorf("setup did not run:\n%s", out)
 				}
 			})
@@ -170,7 +172,7 @@ func TestInstallScriptInTerminal(t *testing.T) {
 				s := startPTY(t, home, filepath.Join(home, "history.db"), nil, term.name, term.args...)
 				time.Sleep(500 * time.Millisecond) // let the shell start
 				s.typeLines(shell + " '" + installer + "'; echo exit=$?")
-				for deadline := time.Now().Add(30 * time.Second); !strings.Contains(s.out.String(), " MB"); time.Sleep(50 * time.Millisecond) {
+				for deadline := time.Now().Add(30 * time.Second); !strings.Contains(s.plain(), " MB"); time.Sleep(50 * time.Millisecond) {
 					if time.Now().After(deadline) {
 						t.Fatalf("no progress bar\n%s", s.out.String())
 					}
@@ -179,7 +181,7 @@ func TestInstallScriptInTerminal(t *testing.T) {
 					t.Fatal(err)
 				}
 				pressed := time.Now()
-				for deadline := pressed.Add(5 * time.Second); !strings.Contains(s.out.String(), "exit=130"); time.Sleep(50 * time.Millisecond) {
+				for deadline := pressed.Add(5 * time.Second); !strings.Contains(s.plain(), "exit=130"); time.Sleep(50 * time.Millisecond) {
 					if time.Now().After(deadline) {
 						t.Fatalf("install.sh did not exit with 130 after Ctrl-C\n%s", s.out.String())
 					}
@@ -212,7 +214,7 @@ func TestInstallScriptInTerminal(t *testing.T) {
 				if read(t, filepath.Join(home, ".local", "bin", "loxx")) != read(t, bin) {
 					t.Error("the installed binary differs from the release")
 				}
-				if !strings.Contains(s.out.String(), "the download restarts on its own") {
+				if !strings.Contains(s.plain(), "the download restarts on its own") {
 					t.Errorf("no note while nothing arrived:\n%s", s.out.String())
 				}
 			})
@@ -239,6 +241,9 @@ func installerHome(t *testing.T, url string) string {
 	t.Setenv("XDG_STATE_HOME", "")
 	return home
 }
+
+// plain is what the session printed, without colors and other escape codes.
+func (s *session) plain() string { return ansi.Strip(s.out.String()) }
 
 // exitCode waits for the process to exit and returns its exit code.
 func (s *session) exitCode() int {

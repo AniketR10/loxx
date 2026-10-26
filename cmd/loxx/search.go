@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AniketR10/loxx/internal/color"
 	"github.com/AniketR10/loxx/internal/format"
 	"github.com/AniketR10/loxx/internal/search"
 	"github.com/AniketR10/loxx/internal/store"
@@ -53,17 +54,18 @@ func runSearch(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	if err := s.SemanticErr(); err != nil {
-		fmt.Fprintln(stderr, "loxx: semantic search unavailable, showing keyword matches only:", err)
+		say(stderr, "semantic search unavailable, showing keyword matches only: %v\n", err)
 	}
 	if len(results) == 0 {
-		fmt.Fprintln(stderr, "loxx: no matches")
+		say(stderr, "no matches\n")
 		return 1
 	}
 	home, _ := os.UserHomeDir()
 	now := time.Now()
+	c := color.For(stdout)
 	for _, r := range results {
-		fmt.Fprintln(stdout, r.Text)
-		fmt.Fprintf(stdout, "    %s\n", format.Details(r, home, now))
+		fmt.Fprintln(stdout, c.Bold(r.Text))
+		fmt.Fprintf(stdout, "    %s\n", format.Details(r, home, now, c))
 	}
 	return 0
 }
