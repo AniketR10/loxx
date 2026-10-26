@@ -32,11 +32,13 @@ elif command -v wget >/dev/null 2>&1; then
 else
   fail "needs curl or wget"
 fi
+# A connection that goes silent (it happens with GitHub's file servers) is
+# dropped after 20 s and retried, instead of waiting forever.
 download() {
   if [ "$fetcher" = curl ]; then
-    curl -fsSL --retry 3 -o "$2" "$1"
+    curl -fsSL --connect-timeout 20 --speed-limit 1024 --speed-time 20 --retry 5 --retry-delay 1 -o "$2" "$1"
   else
-    wget -q -O "$2" "$1"
+    wget -q --timeout=20 --tries=5 -O "$2" "$1"
   fi
 }
 # Linux has sha256sum; macOS has shasum.
@@ -86,6 +88,7 @@ progress() {
   cols=$(stty size </dev/tty 2>/dev/null | cut -d ' ' -f 2)
   [ "${cols:-0}" -gt 20 ] 2>/dev/null || cols=80
   frame=0
+  last=-1 still=0 # frames (0.2 s each) without a new byte
   sec=$(date +%S)
   quip=$((${sec#0} % nquips))
   printf '\n' >&2
@@ -107,7 +110,13 @@ progress() {
     else
       line=$(printf '  %d MB' $((got / 1000000)))
     fi
-    text=$(printf '%s\n' "$quips" | sed -n "$((quip + 1))p" | cut -c "1-$((cols - 3))")
+    if [ "$got" -eq "$last" ]; then still=$((still + 1)); else last=$got still=0; fi
+    if [ "$still" -ge 50 ]; then
+      text="nothing received for $((still / 5)) s, the download restarts on its own..."
+    else
+      text=$(printf '%s\n' "$quips" | sed -n "$((quip + 1))p")
+    fi
+    text=$(printf '%s\n' "$text" | cut -c "1-$((cols - 3))")
     [ "$running" = 1 ] || text=''
     # Up to the bar line, redraw both lines, back to the start of the quip line.
     printf '\033[1A\r%s\033[K\n  %s\033[K\r' "$line" "$text" >&2
@@ -124,9 +133,9 @@ if [ -t 2 ]; then
   # and the exit trap can stop it. curl's -D saves the response headers as soon
   # as they arrive, which tells the progress bar the size.
   if [ "$fetcher" = curl ]; then
-    curl -fsSL --retry 3 -D "$tmp/headers" -o "$tmp/$asset" "$release_url/$asset" &
+    curl -fsSL --connect-timeout 20 --speed-limit 1024 --speed-time 20 --retry 5 --retry-delay 1 -D "$tmp/headers" -o "$tmp/$asset" "$release_url/$asset" &
   else
-    wget -q -O "$tmp/$asset" "$release_url/$asset" &
+    wget -q --timeout=20 --tries=5 -O "$tmp/$asset" "$release_url/$asset" &
   fi
   pid=$!
   progress "$pid" "$tmp/$asset" "$tmp/headers"

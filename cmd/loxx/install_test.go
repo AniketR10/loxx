@@ -143,7 +143,7 @@ func TestInstallScriptInTerminal(t *testing.T) {
 				t.Skipf("%s not installed", shell)
 			}
 			t.Run("install", func(t *testing.T) {
-				url, _ := releaseServer(t, rel, false)
+				url, _ := releaseServer(t, rel, fast)
 				s, home := startInstaller(t, shell, installer, url)
 				if code := s.exitCode(); code != 0 {
 					t.Fatalf("install.sh exited %d\n%s", code, s.out.String())
@@ -162,7 +162,7 @@ func TestInstallScriptInTerminal(t *testing.T) {
 				}
 			})
 			t.Run("ctrl-c", func(t *testing.T) {
-				url, hungUp := releaseServer(t, rel, true)
+				url, hungUp := releaseServer(t, rel, slow)
 				// As in a real terminal, the user's own shell runs the installer
 				// and stays open, so only the installer can stop its download.
 				home := installerHome(t, url)
@@ -197,6 +197,24 @@ func TestInstallScriptInTerminal(t *testing.T) {
 				}
 				s.typeLines("exit")
 				s.wait()
+			})
+			// A connection that goes silent must be dropped and retried, not
+			// left at 0% forever. Only for sh: each run waits out the timeout.
+			if shell != "sh" {
+				return
+			}
+			t.Run("stalled download", func(t *testing.T) {
+				url, _ := releaseServer(t, rel, stallOnce)
+				s, home := startInstaller(t, shell, installer, url)
+				if code := s.exitCode(); code != 0 {
+					t.Fatalf("install.sh exited %d after a stalled download\n%s", code, s.out.String())
+				}
+				if read(t, filepath.Join(home, ".local", "bin", "loxx")) != read(t, bin) {
+					t.Error("the installed binary differs from the release")
+				}
+				if !strings.Contains(s.out.String(), "the download restarts on its own") {
+					t.Errorf("no note while nothing arrived:\n%s", s.out.String())
+				}
 			})
 		})
 	}
@@ -237,13 +255,22 @@ func (s *session) exitCode() int {
 	return 0
 }
 
+// pace is how releaseServer sends files.
+type pace int
+
+const (
+	fast      pace = iota
+	slow           // about 1 MB/s
+	stallOnce      // the first download of a binary goes silent after 64 KiB
+)
+
 // releaseServer serves dir the way GitHub serves a release: /NAME redirects to
-// /files/NAME, which has a Content-Length. With slow set it sends about 1 MB/s.
-// hungUp is closed when a client stops a download before the end.
-func releaseServer(t *testing.T, dir string, slow bool) (url string, hungUp <-chan struct{}) {
+// /files/NAME, which has a Content-Length. hungUp is closed when a client stops
+// a download before the end.
+func releaseServer(t *testing.T, dir string, p pace) (url string, hungUp <-chan struct{}) {
 	t.Helper()
 	gone := make(chan struct{})
-	var once sync.Once
+	var once, stalled sync.Once
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name, ok := strings.CutPrefix(r.URL.Path, "/files/")
 		if !ok {
@@ -256,6 +283,16 @@ func releaseServer(t *testing.T, dir string, slow bool) (url string, hungUp <-ch
 			return
 		}
 		w.Header().Set("Content-Length", strconv.Itoa(len(b)))
+		if p == stallOnce && strings.HasPrefix(filepath.Base(name), "loxx-") {
+			first := false
+			stalled.Do(func() { first = true })
+			if first {
+				w.Write(b[:64<<10])
+				w.(http.Flusher).Flush()
+				<-r.Context().Done() // silent until the client gives up
+				return
+			}
+		}
 		for len(b) > 0 {
 			n := min(len(b), 64<<10)
 			if _, err := w.Write(b[:n]); err != nil {
@@ -263,7 +300,7 @@ func releaseServer(t *testing.T, dir string, slow bool) (url string, hungUp <-ch
 				return
 			}
 			b = b[n:]
-			if !slow {
+			if p != slow {
 				continue
 			}
 			w.(http.Flusher).Flush()
