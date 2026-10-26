@@ -125,7 +125,7 @@ func runEmbed(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "loxx embed: interrupted after %d command(s); run it again to continue\n", done)
 		return 1
 	}
-	fmt.Fprintf(stderr, "loxx: embedded %d command(s) in %.1fs\n", done, time.Since(start).Seconds())
+	sayDone(stderr, "embedded %d command(s) in %.1fs\n", done, time.Since(start).Seconds())
 	return 0
 }
 

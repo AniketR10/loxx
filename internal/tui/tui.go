@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/AniketR10/loxx/internal/color"
 	"github.com/AniketR10/loxx/internal/format"
 	"github.com/AniketR10/loxx/internal/search"
 	"github.com/AniketR10/loxx/internal/store"
@@ -42,7 +43,8 @@ func Run(ctx context.Context, s *search.Searcher, tty *os.File, opt Options) (st
 	if opt.Height <= 0 {
 		opt.Height = defaultHeight
 	}
-	m := &model{ctx: ctx, s: s, opt: opt, query: []rune(opt.Query)}
+	// The panel always draws on a terminal, so only NO_COLOR turns colors off.
+	m := &model{ctx: ctx, s: s, opt: opt, query: []rune(opt.Query), c: color.Palette{On: color.Wanted()}}
 	final, err := tea.NewProgram(m, tea.WithInput(tty), tea.WithOutput(tty)).Run()
 	if err != nil {
 		return store.Result{}, err
@@ -69,6 +71,9 @@ type model struct {
 	height   int
 	chosen   store.Result
 	done     bool
+	c        color.Palette
+	spin     int  // spinner frame, while a meaning-based search runs
+	spinning bool // a spinner tick is scheduled
 }
 
 type resultsMsg struct {
@@ -79,6 +84,19 @@ type resultsMsg struct {
 }
 
 type debounceMsg struct{ seq int }
+
+type spinMsg struct{}
+
+// spinner frames, shown while matching by meaning.
+var spinner = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+
+func (m *model) tick() tea.Cmd {
+	if m.spinning {
+		return nil
+	}
+	m.spinning = true
+	return tea.Tick(90*time.Millisecond, func(time.Time) tea.Msg { return spinMsg{} })
+}
 
 func (m *model) Init() tea.Cmd { return m.refresh() }
 
@@ -101,6 +119,7 @@ func (m *model) refresh() tea.Cmd {
 			return resultsMsg{seq: seq, results: rs, err: err}
 		},
 		tea.Tick(debounce, func(time.Time) tea.Msg { return debounceMsg{seq} }),
+		m.tick(),
 	)
 }
 
@@ -163,6 +182,14 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return resultsMsg{seq: seq, results: rs, semantic: true, err: err}
 		}
 
+	case spinMsg:
+		m.spinning = false
+		if !m.pending {
+			return m, nil
+		}
+		m.spin++
+		return m, m.tick()
+
 	case tea.KeyPressMsg:
 		return m.key(msg)
 	}
@@ -215,17 +242,6 @@ func (m *model) key(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// Plain ANSI styles; the panel needs no styling library.
-const (
-	bold    = "\x1b[1m"
-	dim     = "\x1b[2m"
-	reverse = "\x1b[7m"
-	green   = "\x1b[32m"
-	red     = "\x1b[31m"
-	pink    = "\x1b[38;5;168m" // dark pink (#d75f87), for "suggested"
-	reset   = "\x1b[0m"
-)
-
 func (m *model) View() tea.View {
 	if m.done {
 		return tea.NewView("") // leave nothing behind on the screen
@@ -234,62 +250,80 @@ func (m *model) View() tea.View {
 	if width <= 0 {
 		width = 80
 	}
+	c := m.c
+	caret := " "
+	if c.On {
+		caret = "\x1b[7m \x1b[27m" // reverse video: a block cursor
+	}
 	var b strings.Builder
-	b.WriteString(bold + "loxx ❯ " + reset + string(m.query) + reverse + " " + reset + "\n")
+	b.WriteString(c.Brand("loxx ❯") + " " + string(m.query) + caret + "\n")
 
 	rows := m.rows()
 	now := time.Now()
 	switch {
 	case m.err != nil:
-		b.WriteString(red + "  " + ansi.Truncate(m.err.Error(), width-2, "…") + reset + "\n")
+		b.WriteString(c.Red("  "+ansi.Truncate(m.err.Error(), width-2, "…")) + "\n")
 		rows--
 	case len(m.results) == 0:
-		b.WriteString(dim + "  no matches" + reset + "\n")
+		b.WriteString(c.Dim("  no matches") + "\n")
 		rows--
 	}
 	for i, r := range m.results[:min(len(m.results), rows)] {
 		b.WriteString(m.row(r, i == m.selected, width, now) + "\n")
 	}
 
-	footer := "filter: " + filters[m.filter] + " (Tab) · ↑↓ · Enter use · Esc cancel"
+	footer := c.Dim("filter: ") + c.Teal(filters[m.filter]) + c.Dim(" (Tab) · ↑↓ · Enter use · Esc cancel")
 	if m.pending {
-		footer += " · matching by meaning…"
+		footer += c.Dim(" · ") + c.Teal(spinner[m.spin%len(spinner)]) + c.Dim(" matching by meaning")
 	}
-	b.WriteString(dim + ansi.Truncate(footer, width, "…") + reset)
+	b.WriteString(ansi.Truncate(footer, width, "…"))
 	return tea.NewView(b.String())
 }
 
-// row renders one result on a single line: marker, command, then dimmed
-// details, cut to the terminal width.
+// row renders one result on a single line: marker, command, then its details,
+// cut to the terminal width. The selected row is a full width band.
 func (m *model) row(r store.Result, selected bool, width int, now time.Time) string {
-	text := strings.ReplaceAll(r.Text, "\n", " ↵ ")
-	marker, style := "  ", ""
+	c := m.c
 	if selected {
-		marker, style = "▸ ", bold
+		c = c.InRow()
 	}
+	text := strings.ReplaceAll(r.Text, "\n", " ↵ ")
+	marker := "  "
+	if selected {
+		marker, text = c.Teal("▸ "), c.Bold(text)
+	}
+	var line string
 	if r.Library {
-		return ansi.Truncate(marker+style+text+reset+"  "+pink+"suggested"+reset+dim+" · "+r.Desc+reset, width, "…")
-	}
-	var details []string
-	if r.Cwd != "" {
-		details = append(details, format.TildePath(r.Cwd, m.opt.Home))
-	}
-	if r.LastRun != nil {
-		details = append(details, format.RelativeTime(*r.LastRun, now))
+		line = marker + text + "  " + c.Pink("suggested") + c.Dim(" · "+r.Desc)
 	} else {
-		details = append(details, "imported")
-	}
-	if r.RunCount > 1 {
-		details = append(details, strconv.Itoa(r.RunCount)+"×")
-	}
-	status := ""
-	if r.ExitCode != nil {
-		if *r.ExitCode == 0 {
-			status = " " + green + "✓" + reset
-		} else {
-			status = " " + red + "✗" + reset
+		var details []string
+		if r.Cwd != "" {
+			details = append(details, c.Blue(format.TildePath(r.Cwd, m.opt.Home)))
 		}
+		if r.LastRun != nil {
+			details = append(details, c.Dim(format.RelativeTime(*r.LastRun, now)))
+		} else {
+			details = append(details, c.Dim("imported"))
+		}
+		if r.RunCount > 1 {
+			details = append(details, c.Dim(strconv.Itoa(r.RunCount)+"×"))
+		}
+		status := ""
+		if r.ExitCode != nil {
+			if *r.ExitCode == 0 {
+				status = " " + c.Green("✓")
+			} else {
+				status = " " + c.Red("✗")
+			}
+		}
+		line = marker + text + "  " + strings.Join(details, c.Dim(" · ")) + status
 	}
-	line := marker + style + text + reset + "  " + dim + strings.Join(details, " · ") + reset + status
-	return ansi.Truncate(line, width, "…")
+	line = ansi.Truncate(line, width, "…")
+	if !selected || !c.On {
+		return line // without colors, the ▸ marker shows the selection
+	}
+	if pad := width - ansi.StringWidth(line); pad > 0 {
+		line += strings.Repeat(" ", pad) // the band reaches the right edge
+	}
+	return c.Row(line)
 }

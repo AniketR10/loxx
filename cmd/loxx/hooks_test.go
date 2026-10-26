@@ -41,8 +41,9 @@ func TestShellHooks(t *testing.T) {
 		t.Run(sh.name, func(t *testing.T) {
 			s := startShell(t, sh.name, sh.args)
 			histOut := filepath.Join(s.dir, "history-out")
+			s.typeLines(`eval "$('` + bin + `' init ` + sh.name + `)"`)
+			s.waitFor("loxx is on") // a Ctrl-C before the hook loads would cancel it
 			s.typeLines(
-				`eval "$('`+bin+`' init `+sh.name+`)"`,
 				`echo marker-one`,
 				`false`,
 				` echo marker-secret`,

@@ -47,7 +47,7 @@ func runAdd(args []string, stdout, stderr io.Writer) int {
 
 	raw := fs.Arg(0)
 	if scrub.Ignored(raw) {
-		fmt.Fprintln(stderr, "loxx: not recorded (command starts with a space)")
+		say(stderr, "not recorded (command starts with a space)\n")
 		return 0
 	}
 	cmd := scrub.Scrub(raw)
@@ -87,7 +87,7 @@ func runAdd(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	if n := cmd.Redactions(); n > 0 {
-		fmt.Fprintf(stderr, "loxx: redacted %d secret(s) before storing\n", n)
+		say(stderr, "redacted %d secret(s) before storing\n", n)
 	}
 	return 0
 }

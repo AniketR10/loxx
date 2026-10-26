@@ -145,6 +145,7 @@ loxx has no settings file. These environment variables cover the rare cases:
 | `LOXX_DB_PATH` | Save history to a different file. |
 | `LOXX_BACKGROUND_EMBED=0` | Don't process new commands in the background (search by meaning then only covers commands processed by `loxx embed --pending`). |
 | `LOXX_QUIET=1` | Hide "loxx is on" when a terminal opens. |
+| `NO_COLOR=1` | Turn off colors (the [common switch](https://no-color.org) many tools honour). |
 
 To see the full list of commands: `loxx help`.
 

@@ -8,33 +8,39 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AniketR10/loxx/internal/color"
 	"github.com/AniketR10/loxx/internal/store"
 )
 
 // Details formats a result's metadata line, e.g.
-// "~/work/api · 3 weeks ago · exit 0 · 4 runs".
-func Details(r store.Result, home string, now time.Time) string {
+// "~/work/api · 3 weeks ago · exit 0 · 4 runs", in c's colors.
+func Details(r store.Result, home string, now time.Time, c color.Palette) string {
 	if r.Library {
-		return "suggested · " + r.Desc
+		return c.Pink("suggested") + c.Dim(" · "+r.Desc)
 	}
 	var parts []string
 	if r.Cwd != "" {
-		parts = append(parts, TildePath(r.Cwd, home))
+		parts = append(parts, c.Blue(TildePath(r.Cwd, home)))
 	}
 	if r.LastRun != nil {
-		parts = append(parts, RelativeTime(*r.LastRun, now))
+		parts = append(parts, c.Dim(RelativeTime(*r.LastRun, now)))
 	} else {
-		parts = append(parts, "imported") // no run time is known
+		parts = append(parts, c.Dim("imported")) // no run time is known
 	}
 	if r.ExitCode != nil {
-		parts = append(parts, fmt.Sprintf("exit %d", *r.ExitCode))
+		exit := fmt.Sprintf("exit %d", *r.ExitCode)
+		if *r.ExitCode == 0 {
+			parts = append(parts, c.Green(exit))
+		} else {
+			parts = append(parts, c.Red(exit))
+		}
 	}
 	if r.RunCount == 1 {
-		parts = append(parts, "1 run")
+		parts = append(parts, c.Dim("1 run"))
 	} else {
-		parts = append(parts, fmt.Sprintf("%d runs", r.RunCount))
+		parts = append(parts, c.Dim(fmt.Sprintf("%d runs", r.RunCount)))
 	}
-	return strings.Join(parts, " · ")
+	return strings.Join(parts, c.Dim(" · "))
 }
 
 // RelativeTime describes t relative to now in the largest whole unit, e.g.

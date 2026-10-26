@@ -53,7 +53,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return c.run(args[1:], stdout, stderr)
 		}
 	}
-	fmt.Fprintf(stderr, "loxx: unknown command %q\n\n", args[0])
+	say(stderr, "unknown command %q\n\n", args[0])
 	usage(stderr)
 	return 2
 }

@@ -7,9 +7,18 @@ release_url=${LOXX_RELEASE_URL:-https://github.com/AniketR10/loxx/releases/lates
 bin_dir=${LOXX_BIN_DIR:-$HOME/.local/bin}
 state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/loxx
 
-say() { printf 'loxx install: %s\n' "$*" >&2; }
+# Colors, teal and pink like the rest of loxx: only on a terminal, and never
+# with NO_COLOR set.
+if [ -t 2 ] && [ -z "${NO_COLOR+x}" ] && [ "${TERM:-dumb}" != dumb ]; then
+  teal=$(printf '\033[38;5;73m') pink=$(printf '\033[38;5;168m') red=$(printf '\033[38;5;167m')
+  gray=$(printf '\033[38;5;240m') bold=$(printf '\033[1m') dim=$(printf '\033[2m') off=$(printf '\033[0m')
+else
+  teal='' pink='' red='' gray='' bold='' dim='' off=''
+fi
+
+say() { printf '%s %s\n' "$bold${teal}loxx install:$off" "$*" >&2; }
 fail() {
-  say "$*"
+  printf '%s %s\n' "$bold${red}loxx install:$off" "$*" >&2
   exit 1
 }
 
@@ -32,11 +41,13 @@ elif command -v wget >/dev/null 2>&1; then
 else
   fail "needs curl or wget"
 fi
+# A connection that goes silent (it happens with GitHub's file servers) is
+# dropped after 20 s and retried, instead of waiting forever.
 download() {
   if [ "$fetcher" = curl ]; then
-    curl -fsSL --retry 3 -o "$2" "$1"
+    curl -fsSL --connect-timeout 20 --speed-limit 1024 --speed-time 20 --retry 5 --retry-delay 1 -o "$2" "$1"
   else
-    wget -q -O "$2" "$1"
+    wget -q --timeout=20 --tries=5 -O "$2" "$1"
   fi
 }
 # Linux has sha256sum; macOS has shasum.
@@ -86,6 +97,7 @@ progress() {
   cols=$(stty size </dev/tty 2>/dev/null | cut -d ' ' -f 2)
   [ "${cols:-0}" -gt 20 ] 2>/dev/null || cols=80
   frame=0
+  last=-1 still=0 # frames (0.2 s each) without a new byte
   sec=$(date +%S)
   quip=$((${sec#0} % nquips))
   printf '\n' >&2
@@ -98,16 +110,28 @@ progress() {
     if [ "$total" -gt 0 ]; then
       pct=$((got * 100 / total))
       [ "$pct" -le 100 ] || pct=100
-      bar='' i=0
+      done_part='' left_part='' i=0
       while [ $i -lt 24 ]; do
-        if [ $((i * 100 / 24)) -lt "$pct" ]; then bar=$bar$full; else bar=$bar$empty; fi
+        if [ $((i * 100 / 24)) -lt "$pct" ]; then done_part=$done_part$full; else left_part=$left_part$empty; fi
         i=$((i + 1))
       done
-      line=$(printf '  [%s] %3d%%  %d/%d MB' "$bar" "$pct" $((got / 1000000)) $((total / 1000000)))
+      line=$(printf '  [%s] %s  %s' "$teal$done_part$gray$left_part$off" "$bold$(printf '%3d%%' "$pct")$off" \
+        "$dim$((got / 1000000))/$((total / 1000000)) MB$off")
     else
-      line=$(printf '  %d MB' $((got / 1000000)))
+      line=$(printf '  %s' "$dim$((got / 1000000)) MB$off")
     fi
-    text=$(printf '%s\n' "$quips" | sed -n "$((quip + 1))p" | cut -c "1-$((cols - 3))")
+    if [ "$got" -eq "$last" ]; then still=$((still + 1)); else last=$got still=0; fi
+    if [ "$still" -ge 50 ]; then
+      text="nothing received for $((still / 5)) s, the download restarts on its own..."
+    else
+      text=$(printf '%s\n' "$quips" | sed -n "$((quip + 1))p")
+    fi
+    text=$(printf '%s\n' "$text" | cut -c "1-$((cols - 3))")
+    # Tips get a teal "tip:", everything else is pink.
+    case $text in
+      (tip:*) text="$bold${teal}tip:$off${text#tip:}" ;;
+      (?*) text="$pink$text$off" ;;
+    esac
     [ "$running" = 1 ] || text=''
     # Up to the bar line, redraw both lines, back to the start of the quip line.
     printf '\033[1A\r%s\033[K\n  %s\033[K\r' "$line" "$text" >&2
@@ -124,9 +148,9 @@ if [ -t 2 ]; then
   # and the exit trap can stop it. curl's -D saves the response headers as soon
   # as they arrive, which tells the progress bar the size.
   if [ "$fetcher" = curl ]; then
-    curl -fsSL --retry 3 -D "$tmp/headers" -o "$tmp/$asset" "$release_url/$asset" &
+    curl -fsSL --connect-timeout 20 --speed-limit 1024 --speed-time 20 --retry 5 --retry-delay 1 -D "$tmp/headers" -o "$tmp/$asset" "$release_url/$asset" &
   else
-    wget -q -O "$tmp/$asset" "$release_url/$asset" &
+    wget -q --timeout=20 --tries=5 -O "$tmp/$asset" "$release_url/$asset" &
   fi
   pid=$!
   progress "$pid" "$tmp/$asset" "$tmp/headers"
@@ -161,5 +185,5 @@ say "installed $bin_dir/loxx"
 "$bin_dir/loxx" setup
 # The hook only loads in new shells; this one is still the old one.
 case ${SHELL##*/} in
-  (zsh | bash) say "to use it in this terminal right away, run: exec ${SHELL##*/}" ;;
+  (zsh | bash) say "to use it in this terminal right away, run: $bold${teal}exec ${SHELL##*/}$off" ;;
 esac

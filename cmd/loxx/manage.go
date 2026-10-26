@@ -10,9 +10,11 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/AniketR10/loxx/internal/color"
 	"github.com/AniketR10/loxx/internal/embed"
 	"github.com/AniketR10/loxx/internal/format"
 	"github.com/AniketR10/loxx/internal/setup"
@@ -52,7 +54,7 @@ func runSetup(args []string, stdout, stderr io.Writer) int {
 	}
 	login := filepath.Base(os.Getenv("SHELL"))
 	if goos == "darwin" && login == "bash" {
-		fmt.Fprintf(stderr, "loxx: on macOS, loxx works in zsh only (the bash that comes with macOS is too old).\n"+
+		say(stderr, "on macOS, loxx works in zsh only (the bash that comes with macOS is too old).\n"+
 			"      zsh is the macOS default: switch with `chsh -s /bin/zsh`, open a new terminal\n"+
 			"      and run `%s setup` again.\n", format.TildePath(self, home))
 	}
@@ -66,7 +68,7 @@ func runSetup(args []string, stdout, stderr io.Writer) int {
 		changed, err := setup.Install(rc, sh, self)
 		switch {
 		case errors.Is(err, setup.ErrHandWritten):
-			fmt.Fprintf(stderr, "loxx: %s already loads loxx with a line you added (%v).\n      Remove that line and run `loxx setup` again, or keep it and skip this file.\n",
+			say(stderr, "%s already loads loxx with a line you added (%v).\n      Remove that line and run `loxx setup` again, or keep it and skip this file.\n",
 				format.TildePath(rc, home), strings.TrimPrefix(err.Error(), setup.ErrHandWritten.Error()+": "))
 			configured++
 			continue
@@ -74,9 +76,9 @@ func runSetup(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "loxx setup: %s: %v\n", rc, err)
 			return 1
 		case changed:
-			fmt.Fprintf(stderr, "loxx: added the hook to %s\n", format.TildePath(rc, home))
+			sayDone(stderr, "added the hook to %s\n", format.TildePath(rc, home))
 		default:
-			fmt.Fprintf(stderr, "loxx: %s is already set up\n", format.TildePath(rc, home))
+			say(stderr, "%s is already set up\n", format.TildePath(rc, home))
 		}
 		configured++
 	}
@@ -93,7 +95,7 @@ func runSetup(args []string, stdout, stderr io.Writer) int {
 			return code
 		}
 	}
-	fmt.Fprintln(stderr, "loxx: done. Open a new terminal and type `loxx` to search your history.")
+	sayDone(stderr, "done. Open a new terminal and type `loxx` to search your history.\n")
 	return 0
 }
 
@@ -126,11 +128,11 @@ func runUninstall(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		if changed {
-			fmt.Fprintf(stderr, "loxx: removed the hook from %s\n", format.TildePath(rc, home))
+			sayDone(stderr, "removed the hook from %s\n", format.TildePath(rc, home))
 		}
 		if b, err := os.ReadFile(rc); err == nil {
 			if line, ok := setup.HandWritten(string(b)); ok {
-				fmt.Fprintf(stderr, "loxx: %s still loads loxx with a line you added; remove it yourself: %s\n", format.TildePath(rc, home), line)
+				say(stderr, "%s still loads loxx with a line you added; remove it yourself: %s\n", format.TildePath(rc, home), line)
 			}
 		}
 	}
@@ -153,9 +155,9 @@ func runUninstall(args []string, stdout, stderr io.Writer) int {
 				}
 			}
 			os.Remove(filepath.Dir(dbPath)) // only succeeds if now empty
-			fmt.Fprintln(stderr, "loxx: deleted your history")
+			sayDone(stderr, "deleted your history\n")
 		} else {
-			fmt.Fprintf(stderr, "loxx: kept your history in %s\n", format.TildePath(dbPath, home))
+			say(stderr, "kept your history in %s\n", format.TildePath(dbPath, home))
 		}
 	}
 
@@ -168,11 +170,11 @@ func runUninstall(args []string, stdout, stderr io.Writer) int {
 		}
 		os.Remove(state)
 		os.Remove(filepath.Dir(state))
-		fmt.Fprintf(stderr, "loxx: removed %s\n", format.TildePath(bin, home))
+		sayDone(stderr, "removed %s\n", format.TildePath(bin, home))
 	} else if self, err := os.Executable(); err == nil {
-		fmt.Fprintf(stderr, "loxx: %s was not installed by install.sh, so it was left in place\n", format.TildePath(self, home))
+		say(stderr, "%s was not installed by install.sh, so it was left in place\n", format.TildePath(self, home))
 	}
-	fmt.Fprintln(stderr, "loxx: uninstalled. Terminals that are already open keep the hook until you close them.")
+	sayDone(stderr, "uninstalled. Terminals that are already open keep the hook until you close them.\n")
 	return 0
 }
 
@@ -193,7 +195,16 @@ func runStatus(args []string, stdout, stderr io.Writer) int {
 	}
 	home, _ := os.UserHomeDir()
 	self, _ := os.Executable()
-	fmt.Fprintf(stdout, "loxx %s (%s)\n", version, format.TildePath(self, home))
+	c := color.For(stdout)
+	label := func(name string) string { return c.Dim(fmt.Sprintf("%-11s ", name+":")) }
+	// good is green with a ✓ on a terminal; plain output stays as it always was.
+	good := func(s string) string {
+		if c.On {
+			return c.Green("✓ " + s)
+		}
+		return s
+	}
+	fmt.Fprintf(stdout, "%s %s %s\n", c.Brand("loxx"), c.Bold(version), c.Dim("("+format.TildePath(self, home)+")"))
 
 	path, err := store.DefaultPath()
 	if err != nil {
@@ -223,45 +234,49 @@ func runStatus(args []string, stdout, stderr io.Writer) int {
 			size += fi.Size()
 		}
 	}
-	fmt.Fprintf(stdout, "history:    %s (%.1f MB)\n", format.TildePath(path, home), float64(size)/1e6)
-	fmt.Fprintf(stdout, "commands:   %d unique · %d runs recorded live, %d imported", st.Commands, st.LiveRuns, st.ImportedRuns)
+	fmt.Fprintf(stdout, "%s%s %s\n", label("history"), c.Blue(format.TildePath(path, home)), c.Dim(fmt.Sprintf("(%.1f MB)", float64(size)/1e6)))
+	fmt.Fprintf(stdout, "%s%s unique · %d runs recorded live, %d imported", label("commands"), c.Bold(strconv.Itoa(st.Commands)), st.LiveRuns, st.ImportedRuns)
 	if st.OtherRuns > 0 {
 		fmt.Fprintf(stdout, ", %d added by hand", st.OtherRuns)
 	}
 	fmt.Fprintln(stdout)
 	if last, err := db.LastRunAt(ctx); err == nil && last != nil {
-		fmt.Fprintf(stdout, "last live:  %s\n", format.RelativeTime(*last, time.Now()))
+		fmt.Fprintf(stdout, "%s%s\n", label("last live"), format.RelativeTime(*last, time.Now()))
 	}
-	fmt.Fprintf(stdout, "redacted:   %d secret(s)\n", st.Redactions)
+	redacted := strconv.Itoa(st.Redactions)
+	if st.Redactions > 0 {
+		redacted = c.Pink(redacted) // secrets were caught: worth noticing
+	}
+	fmt.Fprintf(stdout, "%s%s secret(s)\n", label("redacted"), redacted)
 	switch {
 	case pending == 0:
-		fmt.Fprintln(stdout, "embeddings: all commands searchable by meaning")
+		fmt.Fprintf(stdout, "%s%s\n", label("embeddings"), good("all commands searchable by meaning"))
 	case embedRunning(path):
-		fmt.Fprintf(stdout, "embeddings: %d pending, embedding now\n", pending)
+		fmt.Fprintf(stdout, "%s%s\n", label("embeddings"), c.Pink(fmt.Sprintf("%d pending, embedding now", pending)))
 	default:
-		fmt.Fprintf(stdout, "embeddings: %d pending (run `loxx embed --pending`, or they're embedded after your next command)\n", pending)
+		fmt.Fprintf(stdout, "%s%s\n", label("embeddings"), c.Pink(fmt.Sprintf("%d pending (run `loxx embed --pending`, or they're embedded after your next command)", pending)))
 	}
 
 	for _, sh := range setupShells() {
 		rc, _ := setup.RCFile(sh, home)
 		b, err := os.ReadFile(rc)
-		state := "no hook"
+		state := c.Dim("no hook")
 		switch {
 		case err != nil:
-			state = "no rc file"
+			state = c.Dim("no rc file")
 		case setup.HasBlock(string(b)):
-			state = "hook installed"
+			state = good("hook installed")
 		default:
 			if _, ok := setup.HandWritten(string(b)); ok {
-				state = "hook installed (a line you added)"
+				state = good("hook installed (a line you added)")
 			}
 		}
-		fmt.Fprintf(stdout, "%-11s %s: %s\n", sh+":", format.TildePath(rc, home), state)
+		fmt.Fprintf(stdout, "%s%s: %s\n", label(sh), c.Blue(format.TildePath(rc, home)), state)
 	}
 	if sh := os.Getenv("LOXX_HOOK"); sh != "" {
-		fmt.Fprintf(stdout, "this shell: hook active (%s)\n", sh)
+		fmt.Fprintf(stdout, "%s%s\n", label("this shell"), good("hook active ("+sh+")"))
 	} else {
-		fmt.Fprintln(stdout, "this shell: hook not active (open a new terminal after `loxx setup`)")
+		fmt.Fprintf(stdout, "%s%s\n", label("this shell"), c.Pink("hook not active (open a new terminal after `loxx setup`)"))
 	}
 	return 0
 }
@@ -312,7 +327,7 @@ func runForget(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	if len(found) == 0 {
-		fmt.Fprintln(stderr, "loxx: nothing matches")
+		say(stderr, "nothing matches\n")
 		return 1
 	}
 	const shown = 10
@@ -328,7 +343,7 @@ func runForget(args []string, stdout, stderr io.Writer) int {
 			return 2
 		}
 		if !askYesNo(fmt.Sprintf("Forget %d command(s) and all their runs? [y/N] ", len(found))) {
-			fmt.Fprintln(stderr, "loxx: nothing forgotten")
+			say(stderr, "nothing forgotten\n")
 			return 1
 		}
 	}
@@ -341,7 +356,7 @@ func runForget(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "loxx forget:", err)
 		return 1
 	}
-	fmt.Fprintf(stderr, "loxx: forgot %d command(s) (%d runs)\n", len(found), runs)
+	sayDone(stderr, "forgot %d command(s) (%d runs)\n", len(found), runs)
 	return 0
 }
 
