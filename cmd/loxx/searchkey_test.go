@@ -24,7 +24,7 @@ func (s *session) key(k string, wait time.Duration) {
 // take a second or more (macOS scans it).
 func (s *session) waitFor(text string) {
 	s.t.Helper()
-	for deadline := time.Now().Add(10 * time.Second); !strings.Contains(s.out.String(), text); time.Sleep(50 * time.Millisecond) {
+	for deadline := time.Now().Add(10 * time.Second); !strings.Contains(s.plain(), text); time.Sleep(50 * time.Millisecond) {
 		if time.Now().After(deadline) {
 			s.t.Fatalf("%q never appeared\nscreen:\n%s", text, s.out.String())
 		}

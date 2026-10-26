@@ -75,6 +75,10 @@ if [[ ${LOXX_QUIET:-0} != 1 && -t 1 ]]; then
   () {
     local key=Ctrl-Alt-G
     [[ $OSTYPE == darwin* ]] && key=Ctrl-Option-G # what a Mac keyboard calls it
-    print -r -- $'\e[2m''loxx is on: type `loxx` or press '$key' to search your history, e.g. "undo my last commit".'$'\e[0m'
+    if [[ -n ${NO_COLOR+x} ]]; then
+      print -r -- 'loxx is on: type `loxx` or press '$key' to search your history, e.g. "undo my last commit".'
+    else # "loxx" and the key in bold teal, the rest dim
+      print -r -- $'\e[1;38;5;73m''loxx'$'\e[0;2m'' is on: type `loxx` or press '$'\e[0;1;38;5;73m'$key$'\e[0;2m'' to search your history, e.g. "undo my last commit".'$'\e[0m'
+    fi
   }
 fi

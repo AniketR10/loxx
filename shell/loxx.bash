@@ -142,5 +142,9 @@ _loxx_bind_enter() {
 
 # Startup line, only in an interactive terminal (never in scp or scripts).
 if [[ ${LOXX_QUIET:-0} != 1 && $- == *i* && -t 1 ]]; then
-  printf '\033[2mloxx is on: type `loxx` or press Ctrl-Alt-G to search your history, e.g. "undo my last commit".\033[0m\n'
+  if [[ -n ${NO_COLOR+x} ]]; then
+    printf 'loxx is on: type `loxx` or press Ctrl-Alt-G to search your history, e.g. "undo my last commit".\n'
+  else # "loxx" and the key in bold teal, the rest dim
+    printf '\033[1;38;5;73mloxx\033[0;2m is on: type `loxx` or press \033[0;1;38;5;73mCtrl-Alt-G\033[0;2m to search your history, e.g. "undo my last commit".\033[0m\n'
+  fi
 fi
