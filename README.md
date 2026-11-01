@@ -1,112 +1,99 @@
-<p align="center"><img src="site/og.png" alt="Four loxx searches: “undo my last commit” finds git reset --soft HEAD~1, “free up disk space” finds docker system prune -af, “restart the web server” finds sudo systemctl restart nginx, and “what is using port 3000” finds lsof -i :3000" width="720"></p>
-
 # loxx
 
 Find any command you ran before, even if you only remember what it did, or
 the closest command for what you want to do, even if you have never run it.
 
-Press Ctrl-Alt-G, then describe what you want, like "restart the web server" or
-"undo my last commit". You can also type part of the command, like
-"port-forward". Pick one, and it appears in your prompt, ready to use.
+<p align="center"><img src="docs/screenshot.png" alt="The loxx search list in a terminal: searching “undo my last commit” lists git reset --soft HEAD~1 first, with the folder, when it ran and a check mark, followed by other commands from history and suggested commands such as git revert HEAD" width="800"></p>
+
+Press **Ctrl-Alt-G** in your terminal and describe what you want, like
+"undo my last commit" or "restart the web server", or type part of the
+command, like "port-forward". Pick one with Enter and it lands in your prompt,
+ready to edit. loxx never runs anything for you.
 
 - **Private.** Everything stays on your computer. loxx never uses the internet.
 - **Safe.** Passwords, API keys and tokens are removed before anything is saved.
-- **Automatic.** It remembers every command you run, without slowing your terminal.
+- **Fast.** It remembers every command in the background; your prompt never waits.
 
-Website and docs: **[loxx.run](https://loxx.run)**. Try it in your browser
-first with the [Lost Commands](https://loxx.run/#play) game.
+**[Website](https://loxx.run)** · [Docs](https://loxx.run/docs/) ·
+[Download](https://loxx.run/download/) ·
+[Try it in your browser](https://loxx.run/#play)
 
 ## Install
 
-You need Linux with bash or zsh, or a Mac with zsh (the Mac default). Run:
+Linux with bash or zsh, or macOS with zsh (the Mac default). Not Windows.
 
 ```
 curl -fsSL https://loxx.run/install | sh
 ```
 
-Then open a new terminal (or run `exec zsh` in this one). That's it.
+Then open a new terminal, or run `exec zsh` in this one. The installer checks
+the download is genuine, puts loxx in `~/.local/bin`, adds a marked block to
+your shell settings and loads your old history. It doesn't need `sudo`.
+
+- **Update:** run the same line again. Your history is kept.
+- **Uninstall:** `loxx uninstall`. It puts your shell settings back exactly as
+  they were and asks before deleting your history.
 
 The same installer, straight from GitHub:
+`curl -fsSL https://github.com/AniketR10/loxx/releases/latest/download/install.sh | sh`.
+To download a file yourself, see the [download page](https://loxx.run/download/#files).
 
-```
-curl -fsSL https://github.com/AniketR10/loxx/releases/latest/download/install.sh | sh
-```
-
-The installer checks that the download is genuine before installing, puts
-loxx in `~/.local/bin`, adds one line to your shell settings, and loads your
-old command history. It does not need `sudo`.
+On a Mac the key is **Ctrl-Option-G**, with "Use Option as Meta key" turned on
+in your terminal's settings ([how](https://loxx.run/docs/troubleshooting/#ctrl-g)).
+The bash that comes with macOS is too old for loxx; zsh works.
 
 ## Use
 
-Press **Ctrl-Alt-G** at your prompt to open the search list. Anything already
-typed on the line becomes the search. (On a Mac: Ctrl-Option-G, with "Use
-Option as Meta key" turned on in your terminal's settings.)
-
-```
-loxx ❯ undo my last commit
-▸ git reset --soft HEAD~1  ~/code/shop · 3 days ago
-  git revert HEAD  ~/code/api · 2 weeks ago
-```
-
 | Key | What it does |
 |---|---|
+| Ctrl-Alt-G | Open the search. Anything already typed on the line becomes the search. |
 | Type | Search. Exact matches show at once, matches by meaning a moment later. |
-| ↑ ↓ | Move up and down the list. |
-| Tab | Show only: commands from this folder, from this terminal, or ones that failed. |
+| ↑ ↓ | Move through the list. |
+| Tab | Show only commands from this folder, from this terminal, or ones that failed. |
 | Enter | Put the command in your prompt, ready to edit or run. |
 | Esc | Close without choosing; your line stays as it was. |
 
 Typing `loxx` and pressing Enter opens the same list.
 
-The list also suggests the closest commands for what you want to do, even if
-you have never run them, marked `suggested`, for programs installed on your
-computer:
-
-```
-loxx ❯ delete a branch on the remote
-▸ git branch  ~/code/shop · 2 days ago
-  git push remote_name -d remote_branch_name  suggested · Delete a remote branch
-```
-
-Choosing one puts it in your prompt with the cursor on the first word to
-replace (`remote_name`). Your own commands that contain the words you typed
-come first; after them, your commands and suggestions take turns.
-
-loxx never runs a command by itself. You always press Enter to run it.
-
-### Other commands
+Rows marked `suggested` are the closest commands for what you want to do,
+from about 29,000 examples, shown only for programs installed on your
+computer. Choosing one puts the cursor on the first word to replace. Search by
+meaning always shows the closest matches, even when none is a good match.
+More in [Searching](https://loxx.run/docs/usage/).
 
 | Command | What it does |
 |---|---|
-| `loxx search <words>` | Print matching commands instead of opening the list. |
-| `loxx status` | See how many commands are saved and whether loxx is working. |
+| `loxx search <words>` | Print matches instead of opening the list. |
+| `loxx status` | How many commands are saved, and whether loxx is working. |
 | `loxx forget --last` | Delete the command you just ran, e.g. if you typed a password. |
 | `loxx forget --match TEXT` | Delete every command that contains TEXT. |
-| `loxx uninstall` | Remove loxx completely. |
+| `loxx help` | Every command. |
 
-## Your privacy
+All commands and their options: [Commands](https://loxx.run/docs/commands/).
 
-- loxx saves your commands only on your computer, in `~/.local/share/loxx`.
-  Only you can read them.
-- It never connects to the internet. Search works offline.
-- It removes known secrets (API keys, tokens, passwords, private keys) before
-  saving, and shows them as `<REDACTED:…>`.
-- **Start a command with a space** and loxx will not save it at all.
+## Privacy
+
+- Your commands are saved only on your computer, in `~/.local/share/loxx`, and
+  only you can read them. Nothing is synced between computers.
+- loxx removes secrets it recognizes (API keys, tokens, passwords, private
+  keys) before saving, and shows them as `<REDACTED:…>`.
+- **Start a command with a space** and loxx won't save it at all. Do that for
+  an unusual secret loxx may not recognize, or run `loxx forget --last`.
 - `loxx forget` deletes commands completely, including from the files on disk.
 
-loxx can only remove secrets it recognizes. If you type an unusual secret,
-start the command with a space, or run `loxx forget --last` afterwards.
+More in [Privacy and secrets](https://loxx.run/docs/privacy/), including what
+loxx [can't catch](https://loxx.run/docs/privacy/#limits).
 
 ## What loxx changes on your computer
 
 | Where | What |
 |---|---|
 | `~/.local/bin/loxx` | The program (one file). |
-| `~/.bashrc` and/or `~/.zshrc` | One marked block, added by the installer (see below). On a Mac, only `~/.zshrc`. |
+| `~/.bashrc` and/or `~/.zshrc` | One marked block (on a Mac, only `~/.zshrc`). |
 | `~/.local/share/loxx/` | Your saved commands (`history.db`, an SQLite database). |
 | `~/.local/state/loxx/` | A note that the installer put the program there, so uninstall can remove it. |
 
-The block in your shell settings looks like this:
+The block in your shell settings:
 
 ```
 # >>> loxx >>>
@@ -115,90 +102,62 @@ The block in your shell settings looks like this:
 ```
 
 If `~/.local/bin` isn't in your `PATH` (it usually isn't on a Mac), the hook
-adds it, at the end, so typing `loxx` works everywhere, scripts included.
-`loxx uninstall` removes the block and puts the file back exactly as it was.
+adds it at the end, so `loxx` works everywhere, scripts included.
 
 ## How it works
 
-1. After every command, your shell starts `loxx record` in the background.
-   It saves the command, the folder, the exit code and how long it took.
-   Your prompt does not wait for it (it adds about 1–4 ms).
-2. Before saving, loxx removes secrets it recognizes.
-3. In the background, loxx turns each new command into numbers that capture its
-   meaning, using a small language model built into the program
+1. After every command, your shell starts `loxx record` in the background. It
+   saves the command, folder, exit code and duration, adding about 1 to 4 ms.
+2. Secrets are removed before anything is saved.
+3. In the background, each new command is turned into numbers that capture its
+   meaning, by a small language model built into the program
    ([all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)).
-4. When you search, loxx combines two searches: exact words, and closest
-   meaning. So both "port-forward" and "expose my service locally" work.
-5. It also searches a built-in list of about 29,000 example commands from
-   [tldr-pages](https://github.com/tldr-pages/tldr), by meaning, keeping only
-   programs you have installed.
+4. A search combines exact words and closest meaning, so both "port-forward"
+   and "expose my service locally" work. Suggestions come from
+   [tldr-pages](https://github.com/tldr-pages/tldr) examples.
 
-Everything is stored in one SQLite file. The search panel opens in about
-30 ms, even with 100,000 saved commands.
+Everything lives in one SQLite file, and the search list opens in about 25 ms
+even with 100,000 saved commands. The program
+is about 80 MB because the model and the examples are built in. More in
+[How it works](https://loxx.run/docs/how-it-works/).
 
 ## Settings
 
-loxx has no settings file. These environment variables cover the rare cases:
+There is no settings file. These environment variables cover the rare cases:
 
 | Variable | What it does |
 |---|---|
 | `LOXX_DB_PATH` | Save history to a different file. |
-| `LOXX_BACKGROUND_EMBED=0` | Don't process new commands in the background (search by meaning then only covers commands processed by `loxx embed --pending`). |
+| `LOXX_BACKGROUND_EMBED=0` | Don't process new commands in the background (search by meaning then only covers what `loxx embed --pending` has processed). |
 | `LOXX_QUIET=1` | Hide "loxx is on" when a terminal opens. |
 | `NO_COLOR=1` | Turn off colors (the [common switch](https://no-color.org) many tools honour). |
 
-To see the full list of commands: `loxx help`.
+Also on the site: [Settings](https://loxx.run/docs/troubleshooting/#settings).
 
 ## If something seems wrong
 
-Run `loxx status`. It shows:
+Run `loxx status`: it shows what's saved, whether the hook is in your shell
+settings and active in this terminal, and whether search by meaning is ready.
 
-- how many commands are saved, and when the last one was
-- whether the hook is in your shell settings, and whether it is active in this
-  terminal
-- whether every command is ready for search by meaning
+- **Commands aren't saved:** open a new terminal. If `loxx status` says the
+  hook isn't in your settings, run `loxx setup`.
+- **Search by meaning misses new commands:** run `loxx embed --pending`.
+- **bash:** keep the loxx block at the end of `~/.bashrc`; tools that change
+  `PROMPT_COMMAND` after it can switch it off.
 
-Common fixes:
-
-- **Commands aren't being saved:** open a new terminal after installing. If
-  `loxx status` says the hook is not in your settings, run `loxx setup`.
-- **Search by meaning finds nothing new:** run `loxx embed --pending`.
-- **bash:** put the loxx block at the end of `~/.bashrc`. Other tools that
-  change `PROMPT_COMMAND` after it can stop it from working.
+More in [Troubleshooting](https://loxx.run/docs/troubleshooting/).
 
 ## Check a download is genuine
 
-Every release file has a signed record of how it was built. With the GitHub
-CLI:
+Every release file has a signed record of how GitHub built it:
 
 ```
 gh attestation verify loxx-linux-amd64 --repo AniketR10/loxx
 ```
 
-Use the name of the file you downloaded: `loxx-linux-amd64`, `loxx-linux-arm64`,
-`loxx-darwin-arm64` (Mac with an Apple chip) or `loxx-darwin-amd64` (Intel Mac).
-
-## Good to know
-
-- Works on Linux with bash or zsh, and on macOS with zsh. Not on Windows.
-- On a Mac, bash is not supported: the bash that comes with macOS is too old.
-  zsh has been the Mac default since 2019.
-- The terminal you install from doesn't have loxx yet. Open a new one, or
-  run `exec zsh` (or `exec bash`) in it.
-- Your history stays on the computer where you ran the commands.
-- When you search by meaning, loxx always shows the closest matches, even if
-  none of them is a good match.
-- loxx is about 80 MB, because the search model and the command list are
-  built in.
-
-## Uninstall
-
-```
-loxx uninstall
-```
-
-This removes loxx from your shell settings exactly as they were, asks whether
-to delete your saved history, and deletes the program.
+Use the file you downloaded: `loxx-linux-amd64`, `loxx-linux-arm64`,
+`loxx-darwin-arm64` (Apple chip) or `loxx-darwin-amd64` (Intel Mac). You can
+also [compare the checksum](https://loxx.run/download/#verify).
 
 ## Build it yourself
 
@@ -211,11 +170,12 @@ make build
 bin/loxx setup
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) to help develop loxx.
+The first build downloads the model and the command list (about 90 MB). See
+[CONTRIBUTING.md](CONTRIBUTING.md) to help develop loxx.
 
 ## License
 
-MIT. See [LICENSE](LICENSE). The built-in search model has its own license:
+MIT. See [LICENSE](LICENSE). The built-in model has its own license:
 [internal/embed/model](internal/embed/model/). The built-in command list is
 made from [tldr-pages](https://github.com/tldr-pages/tldr) by the tldr-pages
 team and contributors, under
