@@ -73,24 +73,28 @@ func TestPanel(t *testing.T) {
 		keys []string // typed with a pause after each
 		want string   // stdout; "" means cancelled
 		code int
+		// ready, if set, must be on screen after the typed search before the
+		// last key: meaning-based results can take a while on slow machines.
+		ready string
 	}{
-		{"keyword match", []string{"nginx", "\r"}, "sudo systemctl restart nginx\n", 0},
-		{"empty query shows the most recent first", []string{"\r"}, "git status\n", 0},
-		{"arrow keys move the selection", []string{"\x1b[B", "\r"}, "tar -czvf backup.tar.gz ~/Documents\n", 0},
+		{"keyword match", []string{"nginx", "\r"}, "sudo systemctl restart nginx\n", 0, ""},
+		{"empty query shows the most recent first", []string{"\r"}, "git status\n", 0, ""},
+		{"arrow keys move the selection", []string{"\x1b[B", "\r"}, "tar -czvf backup.tar.gz ~/Documents\n", 0, ""},
 		// No session id was given, so Tab skips "this session": all → this dir → failed.
-		{"Tab cycles to the failed filter", []string{"\t", "\t", "\r"}, "make deploy\n", 0},
-		{"meaning, with no shared words", []string{"compress my documents folder", "\r"}, "tar -czvf backup.tar.gz ~/Documents\n", 0},
-		{"Esc cancels", []string{"nginx", "\x1b"}, "", 1},
-		{"Ctrl-C cancels", []string{"\x03"}, "", 1},
+		{"Tab cycles to the failed filter", []string{"\t", "\t", "\r"}, "make deploy\n", 0, ""},
+		{"meaning, with no shared words", []string{"compress my documents folder", "\r"}, "tar -czvf backup.tar.gz ~/Documents\n", 0, "tar -czvf"},
+		{"Esc cancels", []string{"nginx", "\x1b"}, "", 1, ""},
+		{"Ctrl-C cancels", []string{"\x03"}, "", 1, ""},
 	}
 	// Meaning-based search always has a nearest command, so "no results"
 	// needs an empty history.
 	tests = append(tests, struct {
-		name string
-		keys []string
-		want string
-		code int
-	}{"Enter with no results chooses nothing", []string{"anything", "\r"}, "", 1})
+		name  string
+		keys  []string
+		want  string
+		code  int
+		ready string
+	}{"Enter with no results chooses nothing", []string{"anything", "\r"}, "", 1, ""})
 
 	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -101,7 +105,19 @@ func TestPanel(t *testing.T) {
 			var stdout bytes.Buffer
 			s := startPTY(t, dir, db, &stdout, bin, "panel")
 			time.Sleep(300 * time.Millisecond) // first paint
-			for _, k := range tt.keys {
+			for j, k := range tt.keys {
+				if j == len(tt.keys)-1 && tt.ready != "" {
+					query := tt.keys[0]
+					for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(50 * time.Millisecond) {
+						screen := s.plain()
+						if at := strings.LastIndex(screen, query); at >= 0 && strings.Contains(screen[at:], tt.ready) {
+							break
+						}
+						if time.Now().After(deadline) {
+							t.Fatalf("%q never appeared after the search\nscreen:\n%s", tt.ready, screen)
+						}
+					}
+				}
 				if _, err := s.master.WriteString(k); err != nil {
 					t.Fatal(err)
 				}
