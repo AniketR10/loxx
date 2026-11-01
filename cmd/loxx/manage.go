@@ -42,7 +42,7 @@ func runSetup(args []string, stdout, stderr io.Writer) int {
 	if code, ok := parse(fs, args); !ok {
 		return code
 	}
-	self, err := os.Executable()
+	self, err := selfPath()
 	if err != nil {
 		fmt.Fprintln(stderr, "loxx setup:", err)
 		return 1
@@ -194,7 +194,7 @@ func runStatus(args []string, stdout, stderr io.Writer) int {
 		return code
 	}
 	home, _ := os.UserHomeDir()
-	self, _ := os.Executable()
+	self, _ := selfPath()
 	c := color.For(stdout)
 	label := func(name string) string { return c.Dim(fmt.Sprintf("%-11s ", name+":")) }
 	// good is green with a ✓ on a terminal; plain output stays as it always was.

@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/AniketR10/loxx/shell"
 )
@@ -22,7 +25,7 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 		}
 		return 2
 	}
-	self, err := os.Executable()
+	self, err := selfPath()
 	if err != nil {
 		fmt.Fprintln(stderr, "loxx init:", err)
 		return 1
@@ -34,4 +37,33 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprint(stdout, script)
 	return 0
+}
+
+// selfPath is where this program lives, as the hook should remember it: the
+// path it was started by (or found on PATH) when that leads to this same file,
+// otherwise the file itself. Package managers start loxx through a link that
+// stays put, such as Homebrew's /opt/homebrew/bin/loxx, while the file behind
+// it moves to a new versioned folder on every upgrade; remembering the file
+// would break the hook after an upgrade.
+func selfPath() (string, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	arg := os.Args[0]
+	if !strings.Contains(arg, "/") {
+		if arg, err = exec.LookPath(arg); err != nil {
+			return exe, nil
+		}
+	}
+	abs, err := filepath.Abs(arg)
+	if err != nil {
+		return exe, nil
+	}
+	a, errA := os.Stat(abs) // follows the link
+	b, errB := os.Stat(exe)
+	if errA != nil || errB != nil || !os.SameFile(a, b) {
+		return exe, nil
+	}
+	return abs, nil
 }
