@@ -267,6 +267,9 @@ func startPTY(t *testing.T, dir, dbPath string, stdout io.Writer, name string, a
 	s.cmd.Dir = dir
 	s.cmd.Env = append(os.Environ(),
 		"HOME="+dir, // never touch the real home directory or history
+		// zsh and loxx setup read ZDOTDIR before HOME: an inherited one would
+		// point the installer at the user's real ~/.zshrc.
+		"ZDOTDIR=",
 		"HISTFILE="+filepath.Join(dir, "shell-history"),
 		"HISTCONTROL=ignorespace",
 		"LOXX_DB_PATH="+dbPath,
